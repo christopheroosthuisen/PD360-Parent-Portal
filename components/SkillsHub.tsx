@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SKILL_TREE, PHASES, BEHAVIOR_TIPS } from '../constants';
-import { PD360PhaseBar, Card, getLevelColor, Button, CategoryCard } from './UI';
+import { PD360PhaseBar, Card, getLevelColor, Button, CategoryCard, SkillVisual } from './UI';
 import { Search, LayoutGrid, List, ChevronDown, Check, Calculator, SlidersHorizontal, X, ExternalLink, ArrowUpDown, ChevronUp, MessageCircle, CalendarPlus, ArrowUpCircle, ArrowDownCircle, Info, ChevronRight, Dumbbell, Sparkles, Users, Briefcase, ShieldAlert, Brain, Stethoscope, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { DogData } from '../types';
 
 // --- Helper to map category names to icons ---
 const getCategoryIcon = (categoryName: string) => {
@@ -153,7 +154,11 @@ const getTrainingTip = (skillName: string, phase: number, type: 'STANDARD' | 'IN
   }
 };
 
-export const SkillsHub: React.FC = () => {
+interface SkillsHubProps {
+  dogData?: DogData; // Made optional to support existing calls, but ideally required for visuals
+}
+
+export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [activeView, setActiveView] = useState<'categories' | 'detail'>('categories');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -338,7 +343,7 @@ export const SkillsHub: React.FC = () => {
           </div>
           <p className="text-pd-slate text-lg font-sans max-w-2xl leading-relaxed">
             {activeView === 'categories' 
-              ? "Track Barnaby's journey. Select a category below to view detailed skill breakdowns."
+              ? "Track your journey. Select a category below to view detailed skill breakdowns."
               : activeCategory 
                  ? `Viewing skills in ${activeCategory}.`
                  : "Search results for all skills."
@@ -655,18 +660,21 @@ export const SkillsHub: React.FC = () => {
                                     <div className="grid md:grid-cols-3 gap-8">
                                         {/* Visual */}
                                         <div className="md:col-span-1">
-                                            <div className="aspect-video rounded-2xl bg-pd-darkblue flex items-center justify-center overflow-hidden shadow-inner relative group">
-                                                <img 
-                                                    src={`https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=400&q=80`} 
-                                                    alt="Training" 
-                                                    className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
+                                            {/* Use SkillVisual for AI generated image if dogData is available */}
+                                            {dogData ? (
+                                                <SkillVisual 
+                                                    skillName={skill.name} 
+                                                    dogData={dogData} 
+                                                    className="aspect-video rounded-2xl bg-white shadow-sm"
                                                 />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-pd-darkblue to-transparent"></div>
-                                                <div className="relative z-10 text-white text-center p-4">
-                                                    <p className="font-impact tracking-widest text-2xl mb-1">LEVEL {skill.level}</p>
-                                                    <p className="text-sm font-bold text-pd-teal uppercase tracking-wide">{PHASES[skill.type as keyof typeof PHASES][skill.level].label}</p>
+                                            ) : (
+                                                <div className="aspect-video rounded-2xl bg-pd-darkblue flex items-center justify-center overflow-hidden shadow-inner relative group">
+                                                    <div className="relative z-10 text-white text-center p-4">
+                                                        <p className="font-impact tracking-widest text-2xl mb-1">LEVEL {skill.level}</p>
+                                                        <p className="text-sm font-bold text-pd-teal uppercase tracking-wide">{PHASES[skill.type as keyof typeof PHASES][skill.level].label}</p>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
                                         </div>
 
                                         {/* Tips & Actions */}

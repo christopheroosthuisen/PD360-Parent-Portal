@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PHASES } from '../constants';
-import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight } from 'lucide-react';
+import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader } from 'lucide-react';
 import { DogData } from '../types';
+import { generateImage } from '../services/gemini';
 
 export const Card: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = "", onClick }) => (
   <div onClick={onClick} className={`bg-pd-lightest rounded-3xl p-6 md:p-8 ${className}`}>
@@ -51,7 +52,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({ title, subtitle, ico
 export interface ButtonProps {
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'ghost' | 'accent' | 'gemini';
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   className?: string;
   icon?: React.ElementType;
   disabled?: boolean;
@@ -72,7 +73,7 @@ export const Button: React.FC<ButtonProps> = ({ children, variant = "primary", o
   
   if (as === 'label') {
     return (
-      <label htmlFor={htmlFor} className={`${baseStyle} ${variants[variant]} ${className}`}>
+      <label htmlFor={htmlFor} className={`${baseStyle} ${variants[variant]} ${className}`} onClick={onClick}>
         {Icon && <Icon size={20} />}
         {children}
       </label>
@@ -140,6 +141,48 @@ export const ProgressBar: React.FC<{ progress: number; label?: string; className
   </div>
 );
 
+export const SkillVisual: React.FC<{ skillName: string; dogData: DogData; className?: string }> = ({ skillName, dogData, className = "" }) => {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleGenerate = async (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    setLoading(true);
+    // Use specific description for dog visualization
+    const prompt = `Cartoon illustration of a ${dogData.color} ${dogData.breeds.join(' ')} dog performing the "${skillName}" training behavior. Friendly, flat vector style, clean background.`;
+    const url = await generateImage(prompt);
+    if (url) setImageUrl(url);
+    setLoading(false);
+  };
+
+  if (imageUrl) {
+    return (
+      <div className={`relative overflow-hidden rounded-2xl ${className} group`}>
+        <img src={imageUrl} alt={skillName} className="w-full h-full object-cover" />
+        <button 
+          onClick={handleGenerate}
+          className="absolute bottom-2 right-2 p-2 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity text-pd-darkblue"
+          title="Regenerate"
+        >
+          <Sparkles size={16} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bg-pd-lightest/50 rounded-2xl flex flex-col items-center justify-center p-6 text-center border-2 border-pd-lightest border-dashed group hover:border-pd-teal/50 transition-colors ${className}`} onClick={(e) => e.stopPropagation()}>
+      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-3 shadow-sm text-pd-softgrey group-hover:text-pd-teal transition-colors">
+         {loading ? <Loader size={24} className="animate-spin" /> : <ImageIcon size={24} />}
+      </div>
+      <p className="text-xs font-bold text-pd-slate uppercase tracking-wide mb-3">No Visual Yet</p>
+      <Button variant="secondary" onClick={handleGenerate} disabled={loading} className="!py-2 !px-4 !text-xs">
+         {loading ? "Drawing..." : "Visualize"}
+      </Button>
+    </div>
+  );
+};
+
 export const AppLoadingScreen: React.FC = () => (
   <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-4">
     <div className="relative w-32 h-32 mb-8">
@@ -202,8 +245,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const menuItems = [
     { id: 'dashboard', icon: Activity, label: 'Dashboard' },
-    { id: 'training_plan', icon: Calendar, label: 'Training Plan' },
-    { id: 'skills', icon: ClipboardList, label: 'Skill Progress' },
+    { id: 'training_hub', icon: Target, label: 'Training Hub' },
     { id: 'learning', icon: BookOpen, label: 'Learning Center' },
     { id: 'community', icon: Users, label: 'Community' },
   ];

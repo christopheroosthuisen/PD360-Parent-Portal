@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar, AppLoadingScreen } from './components/UI';
 import { Dashboard } from './components/Dashboard';
-import { SkillsHub } from './components/SkillsHub';
-import { TrainingCalendar } from './components/TrainingCalendar';
+import { TrainingHub } from './components/TrainingHub';
 import { IzzyChat } from './components/IzzyChat';
 import { DogProfile } from './components/DogProfile';
 import { CommunityHub } from './components/CommunityHub';
@@ -14,6 +13,9 @@ import { DogData } from './types';
 
 export default function App() {
   const [activeView, setActiveView] = useState('dashboard');
+  // State to handle deep linking to specific tabs within hubs
+  const [activeHubTab, setActiveHubTab] = useState<string | undefined>(undefined);
+  
   const [isSyncing, setIsSyncing] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -50,6 +52,18 @@ export default function App() {
      setDogs(newDogs);
   };
 
+  // Navigation helper to reset tab state when switching main views via Sidebar
+  const handleViewChange = (view: string) => {
+    setActiveView(view);
+    setActiveHubTab(undefined);
+  };
+
+  // Navigation helper for Dashboard widgets to set specific tabs
+  const handleDashboardNav = (view: string, tab?: string) => {
+    setActiveView(view);
+    if (tab) setActiveHubTab(tab);
+  };
+
   if (!isLoaded) {
     return <AppLoadingScreen />;
   }
@@ -58,7 +72,7 @@ export default function App() {
     <div className="flex h-screen bg-white font-sans text-pd-slate overflow-hidden">
       <Sidebar 
         activeView={activeView} 
-        setActiveView={setActiveView} 
+        setActiveView={handleViewChange} 
         dogs={dogs}
         selectedDogId={selectedDogId}
         onSelectDog={setSelectedDogId}
@@ -67,7 +81,7 @@ export default function App() {
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
-      <main className="flex-1 overflow-y-auto relative h-full">
+      <main className="flex-1 overflow-y-auto relative h-full bg-slate-50">
         {/* Mobile Header */}
         <div className="lg:hidden h-20 bg-white border-b-2 border-pd-lightest flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-3">
@@ -81,20 +95,23 @@ export default function App() {
           </div>
         </div>
 
-        <div className="p-6 lg:p-12 max-w-7xl mx-auto pb-32">
+        <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-32">
           {activeView === 'dashboard' && (
             <Dashboard 
               dogData={selectedDog} 
               gradeInfo={gradeInfo} 
               isSyncing={isSyncing} 
               onSync={handleSync}
-              setActiveView={setActiveView}
+              navigate={handleDashboardNav}
             />
           )}
           
-          {activeView === 'skills' && <SkillsHub />}
-          
-          {activeView === 'training_plan' && <TrainingCalendar dogData={selectedDog} />}
+          {activeView === 'training_hub' && (
+            <TrainingHub 
+              dogData={selectedDog} 
+              initialTab={activeHubTab as any} 
+            />
+          )}
           
           {activeView === 'learning' && <LearningCenter dogData={selectedDog} />}
 
@@ -102,11 +119,10 @@ export default function App() {
             <DogProfile dog={selectedDog} onUpdate={handleDogUpdate} />
           )}
 
-          {/* Handle Community Hub with potential deeplinking to reservations */}
-          {(activeView === 'community' || activeView === 'community_reservations') && (
+          {(activeView === 'community') && (
             <CommunityHub 
               dogData={selectedDog} 
-              defaultTab={activeView === 'community_reservations' ? 'reservations' : 'feed'} 
+              defaultTab={activeHubTab as any || 'feed'} 
             />
           )}
         </div>

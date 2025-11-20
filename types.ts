@@ -292,3 +292,17 @@ export interface MediaItem {
   analysis?: AnalysisResult;
   notes?: string;
 }
+
+export interface SessionLog {
+  timestamp: string;
+  type: 'system' | 'command';
+  detail: string;
+}
+
+export interface ActiveSession {
+  id: string;
+  date: string;
+  duration: number;
+  stats: Record<string, { success: number; fail: number }>;
+  notes?: string;
+}

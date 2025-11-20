@@ -43,6 +43,38 @@ export const generateContent = async (
   }
 };
 
+export const generateImage = async (prompt: string): Promise<string | null> => {
+  if (!process.env.API_KEY) return null;
+  
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-image-preview',
+      contents: {
+        parts: [{ text: prompt }],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9",
+          imageSize: "1K"
+        }
+      },
+    });
+
+    // Iterate to find image part
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error("Gemini Image Gen Error:", error);
+    return null;
+  }
+};
+
 // Backward compatibility wrapper if needed, but we will update calls sites.
 export const callGemini = async (userQuery: string, systemInstruction: string = "") => {
   return generateContent(userQuery, "gemini-2.5-flash", systemInstruction);

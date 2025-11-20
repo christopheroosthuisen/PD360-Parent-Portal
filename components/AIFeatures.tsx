@@ -267,6 +267,9 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isRegeneratingDay, setIsRegeneratingDay] = useState<number | null>(null);
 
+  // Prepare skill list for Gemini context
+  const availableSkills = SKILL_TREE.flatMap(cat => cat.skills.map(s => s.name));
+
   // Load plan from localStorage on mount
   useEffect(() => {
     const savedPlan = localStorage.getItem(`pd360_homework_${dogData.id}`);
@@ -307,27 +310,30 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     setIsLoading(true);
     const gradeInfo = getCurrentGrade(dogData.currentScore);
     
+    // Prompt engineering with actual app skills
     const prompt = `Generate a 7-day structured training plan for ${dogData.name}, a ${dogData.breeds.join(', ')} currently in ${gradeInfo.current.name} grade.
     
+    CRITICAL: You must select exercises ONLY from the following list of known skills. Do not invent new names.
+    Available Skills: ${availableSkills.join(', ')}.
+
     Constraints:
     1. Format: JSON array of objects. Each object represents a day.
     2. Sessions per day: Morning (10-15m), Evening (10-15m), and Optional "Life Skills" Bonus.
     3. Structure: Morning/Evening sessions should ideally integrate with potty breaks (e.g., Start in crate -> Session -> Potty).
-    4. Content: Each session must focus on 2-3 specific behaviors. Rotate categories (Obedience, Tricks, Management) to keep it fresh.
-    5. Bonus: The optional session should be passive/low-effort (e.g., during TV, cooking).
+    4. Content: Each session must focus on 2-3 specific behaviors from the list provided above. Rotate categories (Obedience, Tricks, Management) to keep it fresh.
     
     Required JSON Schema per day object:
     {
       "day": "Day 1",
       "focus": "String (e.g., 'Focus & Engagement')",
-      "morning": { "title": "String", "duration": "String", "exercises": ["String", "String"] },
-      "evening": { "title": "String", "duration": "String", "exercises": ["String", "String"] },
-      "bonus": { "title": "String", "exercises": ["String"] }
+      "morning": { "title": "String", "duration": "String", "exercises": ["Exact Skill Name 1", "Exact Skill Name 2"] },
+      "evening": { "title": "String", "duration": "String", "exercises": ["Exact Skill Name 3", "Exact Skill Name 4"] },
+      "bonus": { "title": "String", "exercises": ["Exact Skill Name 5"] }
     }
     
     Strictly return ONLY the JSON array.`;
 
-    const systemPrompt = "You are a PD360 Certified Trainer. You create concise, actionable, and balanced training schedules.";
+    const systemPrompt = "You are a PD360 Certified Trainer. You create concise, actionable, and balanced training schedules using the official PD360 skill curriculum.";
 
     try {
       const responseText = await generateContent(prompt, "gemini-3-pro-preview", systemPrompt);
@@ -349,6 +355,8 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     const prompt = `Regenerate a single day of training for ${dogData.name} (${gradeInfo.current.name}).
     Day: ${plan[dayIndex].day}.
     
+    CRITICAL: Select exercises ONLY from: ${availableSkills.join(', ')}.
+
     Required JSON Schema:
     {
       "day": "${plan[dayIndex].day}",

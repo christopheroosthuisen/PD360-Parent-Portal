@@ -167,7 +167,7 @@ export const MOCK_COURSES: Course[] = [
     progress: 35,
     totalModules: 12,
     completedModules: 4,
-    link: 'https://university.partnersdogs.org/courses/pet-parent-guide',
+    link: 'https://university.partnersdogs.org/login',
     modules: [
       { id: 'm1', title: 'Understanding Drive', duration: '15 min', isCompleted: true, isLocked: false },
       { id: 'm2', title: 'The 3 D\'s of Dog Training', duration: '20 min', isCompleted: true, isLocked: false },
@@ -185,7 +185,7 @@ export const MOCK_COURSES: Course[] = [
     progress: 0,
     totalModules: 8,
     completedModules: 0,
-    link: 'https://university.partnersdogs.org/courses/puppy-blueprint',
+    link: 'https://university.partnersdogs.org/login',
     modules: []
   }
 ];

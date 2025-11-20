@@ -3,20 +3,21 @@ import React, { useState, useMemo } from 'react';
 import { 
   RefreshCw, 
   CheckCircle, 
-  GraduationCap, 
-  Camera,
-  Dumbbell,
-  TrendingUp,
+  TrendingUp, 
   Settings,
   User,
   Download,
   Share2,
   Flame,
   Award,
+  ChevronRight,
   Calendar,
-  BookOpen,
-  Ticket,
-  ChevronRight
+  Video,
+  ClipboardList,
+  PlayCircle,
+  GraduationCap,
+  Users,
+  ArrowUpRight
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -34,19 +35,19 @@ import {
 } from 'recharts';
 import { Card, Button } from './UI';
 import { DogData, Grade } from '../types';
-import { FULL_HISTORY_DATA, RADAR_DATA, TRAINER_NOTES, SKILL_TREE } from '../constants';
+import { FULL_HISTORY_DATA, RADAR_DATA, TRAINER_NOTES } from '../constants';
 
 interface DashboardProps {
   dogData: DogData;
   gradeInfo: { current: Grade; next: Grade };
   isSyncing: boolean;
   onSync: () => void;
-  setActiveView: (view: string) => void;
+  navigate: (view: string, tab?: string) => void;
 }
 
 type TimeRange = 7 | 14 | 30 | 60 | 90;
 
-export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSyncing, onSync, setActiveView }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSyncing, onSync, navigate }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   
   // Filter history based on selected range
@@ -54,20 +55,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
     return FULL_HISTORY_DATA.slice(-timeRange);
   }, [timeRange]);
 
-  // Find skills that need attention
-  const attentionSkills = SKILL_TREE
-    .flatMap(cat => cat.skills)
-    .filter(s => s.level <= 2)
-    .sort(() => 0.5 - Math.random()) 
-    .slice(0, 3);
-
   // Mock Achievements display
   const displayAchievements = dogData.achievements?.slice(0, 3) || [];
 
-  // Mock Next Training Session
-  const nextTraining = { title: "Impulse Control", time: "Today, 5:00 PM" };
-
-  // Upcoming Reservation
   const nextReservation = dogData.reservations?.find(r => r.status === 'Upcoming');
 
   return (
@@ -106,78 +96,97 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
         </div>
       </div>
 
-      {/* Core Modules Overview Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-         {/* Training Plan Widget */}
+      {/* Command Center Grid - Updated Widgets */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+         
+         {/* Active Training Widget */}
          <div 
-            onClick={() => setActiveView('training_plan')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-teal hover:shadow-md transition-all cursor-pointer group"
+            onClick={() => navigate('training_hub', 'session')}
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-teal hover:shadow-md transition-all cursor-pointer group col-span-1"
          >
-             <div className="flex justify-between items-start mb-3">
-                 <div className="p-2 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <Dumbbell size={24} />
+             <div className="flex justify-between items-start mb-4">
+                 <div className="p-2.5 bg-pd-teal/10 rounded-xl text-pd-teal group-hover:bg-pd-teal group-hover:text-white transition-colors">
+                    <PlayCircle size={24} />
                  </div>
-                 <ChevronRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
+                 <ArrowUpRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
              </div>
-             <p className="text-xs font-bold text-pd-softgrey uppercase tracking-wide mb-1">Next Session</p>
-             <p className="font-impact text-lg text-pd-darkblue leading-tight">{nextTraining.title}</p>
-             <p className="text-xs text-pd-slate font-medium mt-1">{nextTraining.time}</p>
+             <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">Start Session</p>
+             <p className="text-xs text-pd-slate font-medium">Log reps & mechanics</p>
          </div>
 
-         {/* Learning Widget */}
+         {/* Skills Widget */}
          <div 
-            onClick={() => setActiveView('learning')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-yellow hover:shadow-md transition-all cursor-pointer group"
+            onClick={() => navigate('training_hub', 'skills')}
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-yellow hover:shadow-md transition-all cursor-pointer group col-span-1"
          >
-             <div className="flex justify-between items-start mb-3">
-                 <div className="p-2 bg-yellow-50 rounded-xl text-yellow-600 group-hover:bg-pd-yellow group-hover:text-pd-darkblue transition-colors">
-                    <BookOpen size={24} />
+             <div className="flex justify-between items-start mb-4">
+                 <div className="p-2.5 bg-pd-yellow/20 rounded-xl text-pd-darkblue group-hover:bg-pd-yellow transition-colors">
+                    <ClipboardList size={24} />
                  </div>
-                 <ChevronRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
+                 <ArrowUpRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
              </div>
-             <p className="text-xs font-bold text-pd-softgrey uppercase tracking-wide mb-1">Current Course</p>
-             <p className="font-impact text-lg text-pd-darkblue leading-tight">Pet Parent Guide</p>
-             <div className="w-full bg-pd-lightest h-1.5 rounded-full mt-2">
-                <div className="bg-pd-yellow h-1.5 rounded-full w-[35%]"></div>
-             </div>
+             <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">Skills Tree</p>
+             <p className="text-xs text-pd-slate font-medium">Track progress levels</p>
          </div>
 
-         {/* Booking Widget */}
+         {/* Calendar Widget */}
          <div 
-            onClick={() => setActiveView('community_reservations')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group"
+            onClick={() => navigate('training_hub', 'schedule')}
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
          >
-             <div className="flex justify-between items-start mb-3">
-                 <div className="p-2 bg-rose-50 rounded-xl text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
-                    <Ticket size={24} />
+             <div className="flex justify-between items-start mb-4">
+                 <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <Calendar size={24} />
                  </div>
-                 <ChevronRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
+                 <ArrowUpRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
              </div>
-             <p className="text-xs font-bold text-pd-softgrey uppercase tracking-wide mb-1">Reservations</p>
-             {nextReservation ? (
-                <>
-                   <p className="font-impact text-lg text-pd-darkblue leading-tight">{nextReservation.serviceName}</p>
-                   <p className="text-xs text-pd-slate font-medium mt-1">{new Date(nextReservation.startDate).toLocaleDateString()}</p>
-                </>
-             ) : (
-                <p className="font-impact text-lg text-pd-slate/50 leading-tight">Book Now</p>
-             )}
+             <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">Schedule</p>
+             <p className="text-xs text-pd-slate font-medium">View training plan</p>
          </div>
 
          {/* Media Widget */}
          <div 
-            onClick={() => setActiveView('learning')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group"
+            onClick={() => navigate('training_hub', 'analysis')}
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
          >
-             <div className="flex justify-between items-start mb-3">
-                 <div className="p-2 bg-purple-50 rounded-xl text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                    <Camera size={24} />
+             <div className="flex justify-between items-start mb-4">
+                 <div className="p-2.5 bg-purple-50 rounded-xl text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                    <Video size={24} />
                  </div>
-                 <ChevronRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
+                 <ArrowUpRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
              </div>
-             <p className="text-xs font-bold text-pd-softgrey uppercase tracking-wide mb-1">AI Analysis</p>
-             <p className="font-impact text-lg text-pd-darkblue leading-tight">Upload Media</p>
-             <p className="text-xs text-pd-slate font-medium mt-1">Check mechanics</p>
+             <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">AI Analysis</p>
+             <p className="text-xs text-pd-slate font-medium">Review video clips</p>
+         </div>
+
+         {/* University Widget */}
+         <div 
+            onClick={() => navigate('learning')}
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
+         >
+             <div className="flex justify-between items-start mb-4">
+                 <div className="p-2.5 bg-rose-50 rounded-xl text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
+                    <GraduationCap size={24} />
+                 </div>
+                 <ArrowUpRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
+             </div>
+             <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">University</p>
+             <p className="text-xs text-pd-slate font-medium">Access courses</p>
+         </div>
+
+         {/* Community Widget */}
+         <div 
+            onClick={() => navigate('community')}
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
+         >
+             <div className="flex justify-between items-start mb-4">
+                 <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <Users size={24} />
+                 </div>
+                 <ArrowUpRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
+             </div>
+             <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">Community</p>
+             <p className="text-xs text-pd-slate font-medium">Events & support</p>
          </div>
       </div>
 
@@ -301,20 +310,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
             </div>
           </Card>
 
+          {/* Upcoming Reservation */}
           <Card className="bg-white border-2 border-pd-lightest">
              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-pd-yellow/20 p-2 rounded-xl">
-                   <Calendar className="text-pd-darkblue" size={24} />
+                <div className="bg-rose-50 p-2 rounded-xl">
+                   <Calendar className="text-rose-500" size={24} />
                 </div>
-                <h2 className="font-impact text-2xl tracking-wide text-pd-darkblue uppercase">Upcoming Events</h2>
+                <h2 className="font-impact text-2xl tracking-wide text-pd-darkblue uppercase">Reservations</h2>
              </div>
              <div className="space-y-3">
-                <div className="p-3 bg-pd-lightest/30 rounded-xl border border-pd-lightest">
-                    <p className="font-bold text-pd-darkblue text-sm">Saturday Pack Walk</p>
-                    <p className="text-xs text-pd-slate mt-1">Nov 12 • 9:00 AM</p>
-                </div>
-                <Button variant="secondary" className="w-full !py-2 !text-xs" onClick={() => setActiveView('community')}>
-                    View Community Calendar
+                {nextReservation ? (
+                    <div className="p-4 bg-pd-lightest/30 rounded-xl border border-pd-lightest">
+                        <p className="font-bold text-pd-darkblue font-impact text-lg">{nextReservation.serviceName}</p>
+                        <p className="text-xs text-pd-teal font-bold uppercase mt-1 mb-2">{nextReservation.status}</p>
+                        <p className="text-sm text-pd-slate flex items-center gap-2">
+                           <Calendar size={14} /> {new Date(nextReservation.startDate).toLocaleDateString()}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="text-center py-4 text-pd-softgrey font-medium italic">No upcoming stays.</div>
+                )}
+                <Button variant="secondary" className="w-full !py-2 !text-xs" onClick={() => navigate('community', 'reservations')}>
+                    Book Now
                 </Button>
              </div>
           </Card>
