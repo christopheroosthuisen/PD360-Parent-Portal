@@ -126,6 +126,29 @@ export interface Reservation {
   facilityName?: string;
 }
 
+export interface OwnerProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password?: string; // In a real app, never store plain text
+}
+
+export interface EmergencyContact {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  relation: string;
+}
+
+export interface NotificationSettings {
+  email: boolean;
+  push: boolean;
+  sms: boolean;
+  marketing: boolean;
+}
+
 export interface DogData {
   id: string;
   name: string;
@@ -137,6 +160,11 @@ export interface DogData {
   color: string;
   avatar: string;
   
+  // Owner Info
+  owner: OwnerProfile;
+  emergencyContact: EmergencyContact;
+  notificationSettings: NotificationSettings;
+
   // Progress
   currentScore: number;
   streak: number;
@@ -172,7 +200,7 @@ export interface Note {
   date: string;
   author: string;
   content: string;
-  type: 'session' | 'system';
+  type: 'session' | 'system' | 'message';
 }
 
 export interface RadarPoint {
@@ -305,4 +333,32 @@ export interface ActiveSession {
   duration: number;
   stats: Record<string, { success: number; fail: number }>;
   notes?: string;
+}
+
+// --- Messaging Types ---
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'coach';
+  text: string;
+  timestamp: string;
+}
+
+export interface CoachConversation {
+  id: string;
+  coachId: string;
+  coachName: string;
+  coachAvatar: string;
+  lastMessage: string;
+  lastMessageTime: string;
+  unreadCount: number;
+  messages: ChatMessage[];
+}
+
+export interface SubscriptionTier {
+  id: string;
+  name: string;
+  price: number;
+  messageCount: number | 'Unlimited';
+  features: string[];
+  recommended?: boolean;
 }

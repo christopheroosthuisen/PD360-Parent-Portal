@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SKILL_TREE, PHASES, BEHAVIOR_TIPS } from '../constants';
 import { PD360PhaseBar, Card, getLevelColor, Button, CategoryCard, SkillVisual } from './UI';
@@ -155,7 +157,7 @@ const getTrainingTip = (skillName: string, phase: number, type: 'STANDARD' | 'IN
 };
 
 interface SkillsHubProps {
-  dogData?: DogData; // Made optional to support existing calls, but ideally required for visuals
+  dogData?: DogData; 
 }
 
 export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
@@ -211,7 +213,6 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // If search is active, we should show the list view automatically to show matches
   useEffect(() => {
     if (searchQuery.trim().length > 0) {
       setActiveView('detail');
@@ -280,7 +281,6 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
       }))
     );
 
-    // If activeCategory is set, filter by it exclusively first (unless searching globally)
     const effectiveCategories = activeCategory && !searchQuery ? [activeCategory] : selectedCategories;
 
     const filtered = flatSkills.filter(skill => {
@@ -339,16 +339,21 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
                    <ArrowLeft size={24} />
                 </button>
              )}
-             <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase">SKILLS & PROGRESS</h1>
           </div>
-          <p className="text-pd-slate text-lg font-sans max-w-2xl leading-relaxed">
-            {activeView === 'categories' 
-              ? "Track your journey. Select a category below to view detailed skill breakdowns."
-              : activeCategory 
-                 ? `Viewing skills in ${activeCategory}.`
-                 : "Search results for all skills."
-            }
-          </p>
+          {/* Search is always prominent now */}
+          <div className="flex gap-2 max-w-md">
+             <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-pd-softgrey" size={20} />
+                <input
+                    type="text"
+                    placeholder="Search specific skill..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-white border-2 border-pd-lightest rounded-xl focus:outline-none focus:border-pd-teal transition-all font-medium text-pd-darkblue placeholder-pd-softgrey shadow-sm"
+                />
+             </div>
+             <Button variant="primary" className="!px-4 !py-2" onClick={() => {}}>Search</Button>
+          </div>
         </div>
 
         {/* Total Score Module */}
@@ -388,17 +393,6 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
       {/* CATEGORY GRID VIEW */}
       {activeView === 'categories' && (
         <div className="space-y-6">
-           <div className="relative w-full max-w-md mx-auto lg:mx-0 mb-8">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-pd-softgrey" size={20} />
-              <input
-                type="text"
-                placeholder="Search specific skill..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border-2 border-pd-lightest rounded-2xl focus:outline-none focus:border-pd-teal transition-all font-medium text-pd-darkblue placeholder-pd-softgrey shadow-sm"
-              />
-           </div>
-
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {categoryStats.map(cat => (
                  <CategoryCard
@@ -447,36 +441,18 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
                     </button>
                 )}
 
-                {/* Search & Sort Group */}
-                <div className="flex items-center gap-2 w-full xl:w-auto">
-                    {/* Search */}
-                    <div className="relative flex-1 xl:w-80">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-pd-softgrey" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Search skills..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-pd-lightest/50 border-2 border-transparent rounded-xl focus:outline-none focus:border-pd-teal focus:bg-white transition-all font-medium text-pd-darkblue placeholder-pd-softgrey"
-                    />
-                    {searchQuery && (
-                        <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-pd-softgrey hover:text-pd-slate">
-                        <X size={16} />
-                        </button>
-                    )}
-                    </div>
-
-                    {/* Sort Dropdown */}
-                    <div className="relative" ref={sortRef}>
+                {/* Sort Dropdown */}
+                <div className="relative" ref={sortRef}>
                     <button 
                         onClick={() => setIsSortOpen(!isSortOpen)}
-                        className="p-3 border-2 border-pd-lightest rounded-xl hover:border-pd-softgrey text-pd-slate transition-colors"
+                        className="p-3 border-2 border-pd-lightest rounded-xl hover:border-pd-softgrey text-pd-slate transition-colors flex items-center gap-2"
                         title="Sort By"
                     >
                         <ArrowUpDown size={20} />
+                        <span className="text-sm font-bold hidden md:inline">Sort</span>
                     </button>
                     {isSortOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border-2 border-pd-lightest rounded-xl shadow-xl z-50 p-1 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-white border-2 border-pd-lightest rounded-xl shadow-xl z-50 p-1 animate-in fade-in zoom-in-95 duration-150">
                         {[
                             { label: 'Name (A-Z)', value: 'name-asc' },
                             { label: 'Name (Z-A)', value: 'name-desc' },
@@ -493,7 +469,6 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
                         ))}
                         </div>
                     )}
-                    </div>
                 </div>
 
                 <div className="hidden xl:block w-0.5 h-10 bg-pd-lightest mx-2"></div>

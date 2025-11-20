@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, 
@@ -19,7 +21,8 @@ import {
   Clock,
   Trash2,
   X,
-  Check
+  Check,
+  PlayCircle
 } from 'lucide-react';
 import { Button, Card, Modal, ProgressBar } from './UI';
 import { DogData, CalendarEvent, TrainingTask, MasteryProjection, EventType, Skill } from '../types';
@@ -64,11 +67,11 @@ const calculateProjections = (dogData: DogData): MasteryProjection[] => {
 
 interface TrainingCalendarProps {
   dogData: DogData;
+  onStartSession: () => void;
 }
 
-export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) => {
+export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onStartSession }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  // Correct date initialization without UTC shifts
   const [selectedDate, setSelectedDate] = useState<string>(() => {
      const d = new Date();
      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -78,18 +81,19 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'training' | 'community' | 'vet'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
+  
   // --- New Event Form State ---
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventType, setNewEventType] = useState<EventType>('training');
   const [newEventTime, setNewEventTime] = useState('09:00');
   const [newEventLocation, setNewEventLocation] = useState('');
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]); // IDs of selected skills
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]); 
   const [skillSearch, setSkillSearch] = useState('');
 
   // Flat list of skills for dropdown
   const allSkills = useMemo(() => SKILL_TREE.flatMap(cat => cat.skills), []);
+  const allSkillNames = useMemo(() => allSkills.map(s => s.name).join(', '), [allSkills]);
+  
   const filteredSkills = allSkills.filter(s => s.name.toLowerCase().includes(skillSearch.toLowerCase()));
 
   // Load/Init Events
@@ -98,7 +102,6 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
     if (savedEvents) {
       setEvents(JSON.parse(savedEvents));
     } else {
-      // Initialize with Community Events mapped to current month/next month
       const today = new Date();
       const mappedCommunityEvents: CalendarEvent[] = MOCK_EVENTS.map((evt, idx) => {
          const evtDate = new Date(today);
@@ -211,17 +214,19 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
     const prompt = `Generate a 7-day training schedule for ${dogData.name} (Grade: ${gradeInfo.current.name}).
     Start Date: today.
     
+    CRITICAL: You MUST select exercise names ONLY from this list: ${allSkillNames}. Do not invent new tasks.
+    
     Format: JSON Array of objects.
     Schema:
     {
-      "title": "Focus Area",
+      "title": "Focus Area (e.g. Obedience, Impulse Control)",
       "dayOffset": number (0-6),
-      "morningTasks": ["Task 1", "Task 2"],
-      "eveningTasks": ["Task 1", "Task 2"]
+      "morningTasks": ["Exact Skill Name 1", "Exact Skill Name 2"],
+      "eveningTasks": ["Exact Skill Name 3", "Exact Skill Name 4"]
     }`;
 
     try {
-      const responseText = await generateContent(prompt, "gemini-3-pro-preview", "You are a PD360 Training Planner.");
+      const responseText = await generateContent(prompt, "gemini-3-pro-preview", "You are a PD360 Training Planner. Use only known skills.");
       const cleanJson = responseText.replace(/```json\n?|\n?```/g, '').trim();
       const planData = JSON.parse(cleanJson);
 
@@ -231,8 +236,8 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
         const dateStr = formatDate(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
         
         const tasks: TrainingTask[] = [
-          ...day.morningTasks.map((t: string, i: number) => ({ id: `m_${i}`, name: t, category: 'Morning', completed: false, duration: '15m' })),
-          ...day.eveningTasks.map((t: string, i: number) => ({ id: `e_${i}`, name: t, category: 'Evening', completed: false, duration: '15m' }))
+          ...(day.morningTasks || []).map((t: string, i: number) => ({ id: `m_${i}`, name: t, category: 'Morning', completed: false, duration: '15m' })),
+          ...(day.eveningTasks || []).map((t: string, i: number) => ({ id: `e_${i}`, name: t, category: 'Evening', completed: false, duration: '15m' }))
         ];
 
         return {
@@ -275,10 +280,8 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
      setEvents(prev => prev.filter(e => e.id !== id));
   };
 
-  // --- Derived Data ---
   const filteredEvents = events.filter(e => {
     if (filterType !== 'all' && e.type !== filterType) return false;
-    if (searchQuery && !e.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
@@ -292,51 +295,56 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-24">
-      {/* Header */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
-        <div>
-          <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">TRAINING PLAN</h1>
-          <p className="text-pd-slate text-lg font-medium">Manage your schedule, track consistency, and project mastery.</p>
-        </div>
-        
-        <div className="flex flex-wrap gap-3">
-          <Button 
-            variant="gemini" 
-            onClick={generateSchedule} 
-            disabled={isGenerating}
-            icon={isGenerating ? Loader : Sparkles}
-            className={isGenerating ? "animate-pulse" : "shadow-lg"}
-          >
-            {isGenerating ? "Building Schedule..." : "Generate Week"}
-          </Button>
-          <Button variant="secondary" icon={Plus} onClick={() => setShowAddEventModal(true)}>
-            Add Event
-          </Button>
-        </div>
-      </div>
-
+      
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
         {/* Left Column: Calendar (2/3) */}
         <div className="xl:col-span-2 space-y-6">
           
-          {/* Calendar Controls */}
-          <Card className="bg-white border-2 border-pd-lightest !p-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-4">
-                <button onClick={prevMonth} className="p-2 hover:bg-pd-lightest rounded-full transition-colors text-pd-darkblue">
-                  <ChevronLeft size={24} />
-                </button>
-                <h2 className="font-impact text-3xl text-pd-darkblue uppercase tracking-wide w-48 text-center">
-                  {monthName} {year}
-                </h2>
-                <button onClick={nextMonth} className="p-2 hover:bg-pd-lightest rounded-full transition-colors text-pd-darkblue">
-                  <ChevronRight size={24} />
-                </button>
+          {/* Calendar Controls & Actions */}
+          <Card className="bg-white border-2 border-pd-lightest !p-5">
+            <div className="flex flex-col gap-4">
+              {/* Actions Row */}
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-pd-lightest pb-4 mb-2 w-full">
+                 <div className="flex items-center gap-4">
+                    <button onClick={prevMonth} className="p-2 hover:bg-pd-lightest rounded-full transition-colors text-pd-darkblue">
+                      <ChevronLeft size={24} />
+                    </button>
+                    <h2 className="font-impact text-3xl text-pd-darkblue uppercase tracking-wide min-w-[180px] text-center">
+                      {monthName} {year}
+                    </h2>
+                    <button onClick={nextMonth} className="p-2 hover:bg-pd-lightest rounded-full transition-colors text-pd-darkblue">
+                      <ChevronRight size={24} />
+                    </button>
+                  </div>
+
+                 <div className="flex flex-wrap gap-3 justify-end">
+                    <Button 
+                      onClick={onStartSession} 
+                      variant="primary" 
+                      icon={PlayCircle}
+                      className="shadow-lg border-b-4 border-pd-teal hover:border-pd-yellow"
+                    >
+                      Start Session
+                    </Button>
+                    <Button 
+                      variant="gemini" 
+                      onClick={generateSchedule} 
+                      disabled={isGenerating}
+                      icon={isGenerating ? Loader : Sparkles}
+                      className={isGenerating ? "animate-pulse" : "shadow-lg"}
+                    >
+                      {isGenerating ? "Building..." : "Generate Week"}
+                    </Button>
+                    <Button variant="secondary" icon={Plus} onClick={() => setShowAddEventModal(true)}>
+                      Add Session
+                    </Button>
+                 </div>
               </div>
 
-              <div className="flex items-center gap-2 bg-pd-lightest/30 p-1 rounded-xl">
+              {/* Filter Row */}
+              <div className="flex items-center gap-2 bg-pd-lightest/30 p-1.5 rounded-xl w-fit">
                  {['all', 'training', 'community', 'vet'].map((type) => (
                    <button
                      key={type}
@@ -443,8 +451,8 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-2">
                 {selectedDayEvents.length === 0 ? (
                    <div className="text-center py-12 text-pd-softgrey">
-                      <p className="italic font-medium">No events scheduled.</p>
-                      <Button variant="ghost" className="mt-4 mx-auto" onClick={() => setShowAddEventModal(true)}>Add Event</Button>
+                      <p className="italic font-medium">No sessions scheduled.</p>
+                      <Button variant="ghost" className="mt-4 mx-auto" onClick={() => setShowAddEventModal(true)}>Add Session</Button>
                    </div>
                 ) : (
                    selectedDayEvents.map(evt => (
@@ -525,7 +533,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
       </div>
 
       {/* Add Event Modal */}
-      <Modal isOpen={showAddEventModal} onClose={() => setShowAddEventModal(false)} title="Add Event">
+      <Modal isOpen={showAddEventModal} onClose={() => setShowAddEventModal(false)} title="Add Session">
          <div className="space-y-6">
             <div>
                <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-2">Title</label>
@@ -534,7 +542,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
                  value={newEventTitle} 
                  onChange={(e) => setNewEventTitle(e.target.value)} 
                  className="w-full p-3 bg-pd-lightest/30 rounded-xl border-2 border-pd-lightest focus:border-pd-teal outline-none font-medium text-pd-darkblue"
-                 placeholder="Event Title" 
+                 placeholder="Session Name" 
                />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -565,7 +573,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
             {newEventType === 'training' && (
                <div className="animate-in fade-in duration-300">
                   <div className="flex justify-between items-center mb-2">
-                     <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block">Select Skills</label>
+                     <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block">Add Skills</label>
                      <span className="text-xs font-bold text-pd-teal">{selectedSkills.length} Selected</span>
                   </div>
                   
@@ -574,11 +582,14 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData }) =
                           <Search size={16} className="text-pd-softgrey" />
                           <input 
                               type="text" 
-                              placeholder="Search behaviors..." 
+                              placeholder="Search skills..." 
                               className="w-full outline-none text-sm font-medium text-pd-darkblue placeholder-pd-softgrey"
                               value={skillSearch}
                               onChange={e => setSkillSearch(e.target.value)}
                           />
+                          <Button variant="secondary" className="!py-1 !px-3 !text-xs !h-8 whitespace-nowrap">
+                            Search
+                          </Button>
                       </div>
                       <div className="overflow-y-auto custom-scrollbar pr-1 space-y-1">
                         {filteredSkills.map(skill => (

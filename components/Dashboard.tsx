@@ -1,5 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+
+
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   RefreshCw, 
   CheckCircle, 
@@ -17,7 +19,13 @@ import {
   PlayCircle,
   GraduationCap,
   Users,
-  ArrowUpRight
+  ArrowUpRight,
+  Send,
+  MessageCircle,
+  X,
+  Target,
+  AlertTriangle,
+  Brain
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -33,9 +41,9 @@ import {
   PolarRadiusAxis, 
   Radar 
 } from 'recharts';
-import { Card, Button } from './UI';
-import { DogData, Grade } from '../types';
-import { FULL_HISTORY_DATA, RADAR_DATA, TRAINER_NOTES } from '../constants';
+import { Card, Button, Modal } from './UI';
+import { DogData, Grade, Note, Achievement } from '../types';
+import { FULL_HISTORY_DATA, RADAR_DATA, TRAINER_NOTES, ACHIEVEMENTS_MOCK } from '../constants';
 
 interface DashboardProps {
   dogData: DogData;
@@ -55,10 +63,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
     return FULL_HISTORY_DATA.slice(-timeRange);
   }, [timeRange]);
 
-  // Mock Achievements display
-  const displayAchievements = dogData.achievements?.slice(0, 3) || [];
+  // Chat State
+  const [chatInput, setChatInput] = useState('');
+  const [chatHistory, setChatHistory] = useState<Note[]>(TRAINER_NOTES);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Badges Modal
+  const [showBadgesModal, setShowBadgesModal] = useState(false);
+
+  // Scroll chat to bottom
+  useEffect(() => {
+    if (chatEndRef.current) {
+        chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory]);
+
+  const handleSendMessage = () => {
+     if (!chatInput.trim()) return;
+     
+     const newMessage: Note = {
+        id: Date.now(),
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        author: 'You',
+        content: chatInput,
+        type: 'message'
+     };
+     
+     setChatHistory(prev => [...prev, newMessage]);
+     setChatInput('');
+
+     // Simulate trainer response
+     setTimeout(() => {
+         const response: Note = {
+             id: Date.now() + 1,
+             date: 'Just now',
+             author: 'Mike (Senior Trainer)',
+             content: "Thanks for the update! Keep up the consistency with the 'Place' command. You're doing great.",
+             type: 'session'
+         };
+         setChatHistory(prev => [...prev, response]);
+     }, 2000);
+  };
 
   const nextReservation = dogData.reservations?.find(r => r.status === 'Upcoming');
+
+  // Determine Insights from Radar Data
+  const { strongestSkill, weakestSkill } = useMemo(() => {
+     const sorted = [...RADAR_DATA].sort((a, b) => b.A - a.A);
+     return {
+         strongestSkill: sorted[0],
+         weakestSkill: sorted[sorted.length - 1]
+     };
+  }, []);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -193,9 +249,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column: Charts */}
+        {/* Left Column (2 Cols Wide): Skill Balance & Charts */}
         <div className="lg:col-span-2 space-y-6">
           
+          {/* Enhanced Skill Balance Module - Moved to Main Column */}
+          <Card className="bg-white border-2 border-pd-lightest">
+             <div className="flex items-center justify-between mb-6">
+                <h2 className="font-impact text-2xl text-pd-darkblue tracking-wide uppercase flex items-center gap-2">
+                   <Target size={24} className="text-pd-teal" /> SKILL PROFICIENCY
+                </h2>
+                <Button variant="ghost" className="!py-1 !px-3 !text-xs" onClick={() => navigate('training_hub', 'skills')}>View Breakdown</Button>
+             </div>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div className="h-64 w-full relative">
+                   <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="75%" data={RADAR_DATA}>
+                         <PolarGrid stroke="#ebeded" />
+                         <PolarAngleAxis dataKey="subject" tick={{ fill: '#022D41', fontSize: 12, fontFamily: 'Impact', letterSpacing: '0.5px' }} />
+                         <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
+                         <Radar
+                            name={dogData.name}
+                            dataKey="A"
+                            stroke="#34C6B9"
+                            strokeWidth={3}
+                            fill="#34C6B9"
+                            fillOpacity={0.4}
+                         />
+                      </RadarChart>
+                   </ResponsiveContainer>
+                </div>
+
+                <div className="space-y-6">
+                   <div>
+                      <div className="flex items-center gap-2 text-pd-softgrey uppercase font-bold text-xs tracking-wider mb-2">
+                         <Award size={14} className="text-pd-teal" /> Top Strength
+                      </div>
+                      <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                         <div className="flex justify-between items-center mb-1">
+                            <span className="font-impact text-lg text-emerald-800 uppercase">{strongestSkill.subject}</span>
+                            <span className="font-bold text-emerald-600">{strongestSkill.A}/5</span>
+                         </div>
+                         <p className="text-sm text-emerald-700 font-medium">Excellent consistency. Keep proofing with higher distractions.</p>
+                      </div>
+                   </div>
+
+                   <div>
+                      <div className="flex items-center gap-2 text-pd-softgrey uppercase font-bold text-xs tracking-wider mb-2">
+                         <AlertTriangle size={14} className="text-orange-500" /> Focus Area
+                      </div>
+                      <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                         <div className="flex justify-between items-center mb-1">
+                            <span className="font-impact text-lg text-orange-800 uppercase">{weakestSkill.subject}</span>
+                            <span className="font-bold text-orange-600">{weakestSkill.A}/5</span>
+                         </div>
+                         <p className="text-sm text-orange-700 font-medium">Consistency drops with duration. Try shorter, more frequent sessions.</p>
+                      </div>
+                   </div>
+
+                   <Button variant="secondary" className="w-full" icon={Brain} onClick={() => navigate('training_hub', 'schedule')}>
+                      Get Targeted Plan
+                   </Button>
+                </div>
+             </div>
+          </Card>
+
+          {/* Score History Chart */}
           <Card className="bg-white border-2 border-pd-lightest">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <h2 className="font-impact text-2xl text-pd-darkblue tracking-wide uppercase flex items-center gap-2">
@@ -211,12 +330,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
                     {range}D
                   </button>
                 ))}
-                <button className="p-2 text-pd-slate hover:text-pd-darkblue transition-colors ml-2 bg-pd-lightest/50 rounded-lg hover:bg-pd-lightest" title="Export Data">
-                  <Download size={18} />
-                </button>
               </div>
             </div>
-            <div className="h-80 w-full">
+            <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ebeded" vertical={false} />
@@ -235,47 +351,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
               </ResponsiveContainer>
             </div>
           </Card>
-
-          {/* Recent Activity / Notes */}
-          <Card className="bg-white border-2 border-pd-lightest">
-            <h2 className="font-impact text-2xl text-pd-darkblue tracking-wide mb-6 uppercase">TRAINER LOG</h2>
-            <div className="space-y-4">
-              {TRAINER_NOTES.map((note) => (
-                <div key={note.id} className="flex gap-5 p-5 bg-pd-lightest/20 rounded-2xl border border-pd-lightest hover:border-pd-teal/50 hover:shadow-md transition-all">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
-                    note.type === 'system' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-white text-pd-teal border border-pd-teal/20'
-                  }`}>
-                    {note.type === 'system' ? <Settings size={24} /> : <User size={24} />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-impact text-lg text-pd-darkblue tracking-wide">{note.author}</span>
-                      <span className="text-[10px] text-pd-slate font-bold uppercase bg-white px-2 py-1 rounded-lg border border-pd-lightest tracking-wider">{note.date}</span>
-                    </div>
-                    <p className="text-pd-slate leading-relaxed font-medium text-sm">
-                      {note.content}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
         </div>
 
-        {/* Right Column: Radar & Needs Work */}
+        {/* Right Column (1 Col Wide): Badges, Chat, Reservations */}
         <div className="space-y-6">
           
-          {/* Achievements Widget */}
+          {/* Badges Widget */}
           <Card className="bg-gradient-to-br from-pd-darkblue to-slate-900 text-white border-none shadow-lg relative overflow-hidden">
              <div className="absolute top-0 right-0 w-40 h-40 bg-pd-teal rounded-full opacity-10 -mr-10 -mt-10 blur-3xl"></div>
-             <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
-                   <Award size={24} className="text-pd-yellow" />
+             <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+                        <Award size={24} className="text-pd-yellow" />
+                    </div>
+                    <h3 className="font-impact text-2xl tracking-wide uppercase">BADGES</h3>
                 </div>
-                <h3 className="font-impact text-2xl tracking-wide uppercase">RECENT BADGES</h3>
+                <button onClick={() => setShowBadgesModal(true)} className="text-xs font-bold text-pd-teal uppercase hover:text-white transition-colors">View All</button>
              </div>
              <div className="space-y-3 relative z-10">
-                {displayAchievements.length > 0 ? displayAchievements.map(ach => (
+                {dogData.achievements.filter(a => !a.isLocked).slice(0, 3).map(ach => (
                    <div key={ach.id} className="flex items-center gap-4 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors border border-white/5 hover:border-white/20">
                       <div className="text-2xl drop-shadow-md">{ach.icon}</div>
                       <div>
@@ -283,30 +377,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
                          <p className="text-xs text-pd-teal uppercase font-bold tracking-wide mt-1">{ach.description}</p>
                       </div>
                    </div>
-                )) : (
-                   <p className="text-white/60 italic text-sm">Start training to earn badges!</p>
-                )}
+                ))}
              </div>
           </Card>
 
-          <Card className="bg-white border-2 border-pd-lightest">
-            <h2 className="font-impact text-2xl text-pd-darkblue tracking-wide mb-4 uppercase">SKILL BALANCE</h2>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={RADAR_DATA}>
-                  <PolarGrid stroke="#ebeded" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#022D41', fontSize: 12, fontFamily: 'Impact', letterSpacing: '1px' }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
-                  <Radar
-                    name={dogData.name}
-                    dataKey="A"
-                    stroke="#34C6B9"
-                    strokeWidth={3}
-                    fill="#34C6B9"
-                    fillOpacity={0.4}
+          {/* Trainer Chat */}
+          <Card className="bg-white border-2 border-pd-lightest flex flex-col h-[500px]">
+            <div className="flex items-center justify-between mb-4 pb-4 border-b-2 border-pd-lightest shrink-0">
+               <div className="flex items-center gap-3">
+                  <div className="relative">
+                     <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80" alt="Trainer" className="w-10 h-10 rounded-full object-cover border-2 border-pd-teal" />
+                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></div>
+                  </div>
+                  <div>
+                     <h2 className="font-impact text-xl text-pd-darkblue tracking-wide uppercase">Trainer Chat</h2>
+                     <p className="text-xs text-pd-slate font-bold uppercase">Mike (Senior Trainer)</p>
+                  </div>
+               </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar mb-4">
+              {chatHistory.map((note) => (
+                <div key={note.id} className={`flex flex-col ${note.author === 'You' ? 'items-end' : 'items-start'}`}>
+                   <div className={`max-w-[85%] p-3 rounded-xl text-sm font-medium shadow-sm ${
+                      note.author === 'You' 
+                      ? 'bg-pd-teal text-pd-darkblue rounded-tr-none' 
+                      : note.type === 'system' 
+                         ? 'bg-pd-lightest/50 text-pd-softgrey italic border border-pd-lightest w-full text-center'
+                         : 'bg-pd-lightest text-pd-slate rounded-tl-none'
+                   }`}>
+                      {note.type !== 'system' && note.author !== 'You' && <p className="text-[10px] font-bold uppercase tracking-wider mb-1 text-pd-darkblue/70">{note.author}</p>}
+                      {note.content}
+                   </div>
+                   {note.type !== 'system' && <span className="text-[10px] text-pd-softgrey mt-1 px-1">{note.date}</span>}
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="mt-auto pt-2 shrink-0">
+               <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Message Mike..."
+                    className="flex-1 bg-pd-lightest/30 border-2 border-pd-lightest rounded-xl px-4 py-2 text-sm font-medium focus:border-pd-teal outline-none text-pd-darkblue"
                   />
-                </RadarChart>
-              </ResponsiveContainer>
+                  <Button variant="primary" className="!px-4" onClick={handleSendMessage}>
+                     <Send size={18} />
+                  </Button>
+               </div>
             </div>
           </Card>
 
@@ -337,6 +459,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
           </Card>
         </div>
       </div>
+
+      {/* Badges Modal */}
+      <Modal isOpen={showBadgesModal} onClose={() => setShowBadgesModal(false)} title="Achievements">
+         <div className="space-y-6">
+            <div className="text-center mb-6">
+               <div className="inline-flex items-center justify-center p-3 bg-pd-yellow/10 rounded-full mb-3">
+                  <Award size={32} className="text-pd-yellow" />
+               </div>
+               <p className="text-pd-slate text-sm">Earn badges by maintaining streaks, mastering skills, and completing courses.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {ACHIEVEMENTS_MOCK.map((ach) => {
+                  const isEarned = !ach.isLocked;
+                  return (
+                     <div 
+                        key={ach.id} 
+                        className={`group relative p-4 rounded-2xl border-2 transition-all duration-300 ${
+                           isEarned 
+                           ? 'bg-white border-pd-teal shadow-sm' 
+                           : 'bg-pd-lightest/20 border-pd-lightest opacity-60 grayscale hover:grayscale-0 hover:opacity-100 hover:bg-white hover:shadow-md'
+                        }`}
+                     >
+                        <div className="flex items-start gap-4">
+                           <div className={`text-3xl ${isEarned ? '' : 'opacity-50'}`}>{ach.icon}</div>
+                           <div>
+                              <h4 className={`font-impact text-lg tracking-wide uppercase ${isEarned ? 'text-pd-darkblue' : 'text-pd-slate'}`}>
+                                 {ach.title}
+                              </h4>
+                              <p className="text-xs font-bold text-pd-softgrey uppercase tracking-wider mt-1 mb-2">{ach.description}</p>
+                              {isEarned ? (
+                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-pd-teal bg-pd-teal/10 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                    <CheckCircle size={10} /> Earned {ach.dateEarned ? `on ${new Date(ach.dateEarned).toLocaleDateString()}` : ''}
+                                 </span>
+                              ) : (
+                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-pd-slate bg-pd-lightest px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                    Locked
+                                 </span>
+                              )}
+                           </div>
+                        </div>
+                     </div>
+                  );
+               })}
+            </div>
+         </div>
+      </Modal>
     </div>
   );
 };

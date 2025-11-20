@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, 
@@ -52,7 +54,7 @@ const parseAnalysisResult = (text: string) => {
 
 export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
   const [view, setView] = useState<'library' | 'upload' | 'detail'>('library');
-  const [activeTab, setActiveTab] = useState<'video' | 'photo'>('video'); // Used for upload type or filter
+  const [activeTab, setActiveTab] = useState<'video' | 'photo'>('video'); 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Library State
@@ -70,12 +72,12 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [rawAnalysis, setRawAnalysis] = useState<string | null>(null);
+  const [skillSearch, setSkillSearch] = useState('');
 
   const filteredLibrary = library.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesTags = selectedFilterTags.length === 0 || selectedFilterTags.every(t => item.tags.includes(t));
-    const matchesType = activeTab === item.type; // Filter by current tab (Photo/Video) or remove this if you want mixed grid
-    return matchesSearch && matchesTags; // && matchesType
+    return matchesSearch && matchesTags; 
   });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,7 +152,7 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
         id: Date.now().toString(),
         type: activeTab,
         url: preview,
-        thumbnail: preview, // In real app, generate thumb
+        thumbnail: preview, 
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         title: `${activeTab === 'video' ? 'Video' : 'Photo'} Analysis`,
         tags: selectedTags,
@@ -235,8 +237,21 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">MEDIA LIBRARY</h2>
-          <p className="text-pd-slate text-lg">Track progress, analyze mechanics, and improve timing.</p>
+          {/* Search added here */}
+           {view === 'library' && (
+              <div className="flex gap-2 max-w-md mt-2">
+                 <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-pd-softgrey" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Search library..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-white border-2 border-pd-lightest rounded-xl focus:outline-none focus:border-pd-teal transition-all font-medium text-pd-darkblue placeholder-pd-softgrey shadow-sm"
+                    />
+                 </div>
+              </div>
+           )}
         </div>
         
         <div className="flex gap-3">
@@ -258,32 +273,20 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
          <div className="space-y-6">
             {/* Filters */}
             <Card className="bg-white border-2 border-pd-lightest">
-               <div className="flex flex-col md:flex-row gap-4 items-center">
-                  <div className="relative flex-1 w-full">
-                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-pd-softgrey" size={20} />
-                     <input 
-                        type="text" 
-                        placeholder="Search by title or tag..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-pd-lightest/30 border-2 border-pd-lightest rounded-xl focus:border-pd-teal focus:bg-white transition-all text-pd-darkblue font-medium outline-none"
-                     />
-                  </div>
-                  <div className="flex gap-2 overflow-x-auto max-w-full pb-2 md:pb-0">
-                     {BEHAVIOR_TAGS.slice(0, 6).map(tag => (
-                        <button
-                           key={tag}
-                           onClick={() => toggleFilterTag(tag)}
-                           className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border-2 whitespace-nowrap ${
-                              selectedFilterTags.includes(tag)
-                              ? 'bg-pd-darkblue text-white border-pd-darkblue'
-                              : 'bg-white text-pd-slate border-pd-lightest hover:border-pd-teal'
-                           }`}
-                        >
-                           {tag}
-                        </button>
-                     ))}
-                  </div>
+               <div className="flex gap-2 overflow-x-auto max-w-full pb-2 md:pb-0">
+                  {BEHAVIOR_TAGS.slice(0, 8).map(tag => (
+                     <button
+                        key={tag}
+                        onClick={() => toggleFilterTag(tag)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border-2 whitespace-nowrap ${
+                           selectedFilterTags.includes(tag)
+                           ? 'bg-pd-darkblue text-white border-pd-darkblue'
+                           : 'bg-white text-pd-slate border-pd-lightest hover:border-pd-teal'
+                        }`}
+                     >
+                        {tag}
+                     </button>
+                  ))}
                </div>
             </Card>
 
@@ -307,195 +310,4 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
                         </div>
                      </div>
                      <div className="p-5">
-                        <h3 className="font-impact text-xl text-pd-darkblue tracking-wide mb-2 truncate">{item.title}</h3>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                           {item.tags.slice(0, 3).map(tag => (
-                              <span key={tag} className="text-[10px] font-bold bg-pd-lightest text-pd-slate px-2 py-1 rounded-md uppercase">{tag}</span>
-                           ))}
-                           {item.tags.length > 3 && <span className="text-[10px] font-bold text-pd-softgrey px-1">+{item.tags.length - 3}</span>}
-                        </div>
-                        {item.analysis?.engagement_score && (
-                           <div className="flex items-center gap-2 text-xs font-bold text-pd-teal uppercase tracking-wide">
-                              <Sparkles size={14} /> Engagement: {item.analysis.engagement_score}/10
-                           </div>
-                        )}
-                     </div>
-                  </div>
-               ))}
-               {filteredLibrary.length === 0 && (
-                  <div className="col-span-full py-12 text-center text-pd-softgrey italic font-medium">
-                     No media found. Try adjusting your filters or upload a new clip.
-                  </div>
-               )}
-            </div>
-         </div>
-      )}
-
-      {/* UPLOAD VIEW */}
-      {view === 'upload' && (
-         <Card className="min-h-[600px] relative overflow-hidden !p-0 flex flex-col bg-white border-none shadow-xl">
-            <div className="bg-pd-lightest/20 border-b-2 border-pd-lightest p-6 flex justify-center items-center gap-4 md:gap-12">
-               {[1, 2, 3].map(s => (
-                  <React.Fragment key={s}>
-                     <div className={`flex items-center gap-3 ${step >= s ? 'text-pd-darkblue' : 'text-pd-softgrey'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-2 ${step >= s ? 'bg-pd-darkblue text-white border-pd-darkblue' : 'bg-white border-pd-lightest'}`}>{s}</div>
-                        <span className="hidden md:inline font-impact tracking-wide uppercase text-lg">{s === 1 ? 'Upload' : s === 2 ? 'Tag' : 'Analyze'}</span>
-                     </div>
-                     {s < 3 && <div className="w-12 h-0.5 bg-pd-lightest"></div>}
-                  </React.Fragment>
-               ))}
-            </div>
-
-            <div className="flex-1 p-8">
-               {step === 1 && (
-                  <div className="h-full flex flex-col items-center justify-center text-center space-y-8 py-8">
-                     <div className="flex gap-4 mb-4">
-                        <button onClick={() => setActiveTab('video')} className={`px-6 py-3 rounded-xl font-impact uppercase tracking-wide transition-all border-2 ${activeTab === 'video' ? 'bg-pd-darkblue text-white border-pd-darkblue' : 'border-pd-lightest text-pd-slate hover:border-pd-teal'}`}>Video</button>
-                        <button onClick={() => setActiveTab('photo')} className={`px-6 py-3 rounded-xl font-impact uppercase tracking-wide transition-all border-2 ${activeTab === 'photo' ? 'bg-pd-darkblue text-white border-pd-darkblue' : 'border-pd-lightest text-pd-slate hover:border-pd-teal'}`}>Photo</button>
-                     </div>
-                     <div className="w-32 h-32 bg-pd-lightest/30 rounded-full flex items-center justify-center mx-auto border-4 border-pd-lightest text-pd-darkblue">
-                        {activeTab === 'photo' ? <ImageIcon size={48} /> : <VideoIcon size={48} />}
-                     </div>
-                     <p className="text-pd-slate max-w-md font-medium">Upload media to analyze behavior, mechanics, and timing.</p>
-                     <Button as="label" htmlFor="media-upload" variant="primary" icon={Upload} className="text-lg px-8 py-4">
-                        Select File
-                     </Button>
-                     <input id="media-upload" type="file" accept={activeTab === 'photo' ? "image/*" : "video/mp4,video/webm"} className="hidden" onChange={handleFileSelect} />
-                  </div>
-               )}
-
-               {step === 2 && (
-                  <div className="grid lg:grid-cols-2 gap-10 h-full">
-                     <div className="relative rounded-2xl overflow-hidden bg-black aspect-video flex items-center justify-center shadow-xl border-4 border-pd-lightest">
-                        {activeTab === 'photo' ? <img src={preview!} alt="Preview" className="w-full h-full object-contain" /> : <video src={preview!} controls className="w-full h-full" />}
-                     </div>
-                     <div className="flex flex-col h-full space-y-6">
-                        <div>
-                           <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider mb-3 block">Tags</label>
-                           <div className="flex flex-wrap gap-2">
-                              {BEHAVIOR_TAGS.map(tag => (
-                                 <button key={tag} onClick={() => toggleTag(tag)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${selectedTags.includes(tag) ? 'bg-pd-darkblue text-white border-pd-darkblue' : 'bg-white text-pd-slate border-pd-lightest hover:border-pd-teal'}`}>{tag}</button>
-                              ))}
-                           </div>
-                        </div>
-                        <div className="flex-1">
-                           <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider mb-3 block">Notes</label>
-                           <textarea value={userNotes} onChange={(e) => setUserNotes(e.target.value)} className="w-full h-32 bg-pd-lightest/30 border-2 border-pd-lightest rounded-xl p-4 text-pd-darkblue focus:border-pd-teal outline-none resize-none font-medium" placeholder="Add context..." />
-                        </div>
-                        <Button variant="gemini" onClick={handleAnalyze} disabled={isAnalyzing} icon={isAnalyzing ? Loader : Sparkles} className={`w-full py-4 text-lg ${isAnalyzing ? 'animate-pulse' : ''}`}>
-                           {isAnalyzing ? 'Analyzing...' : 'Start Analysis'}
-                        </Button>
-                     </div>
-                  </div>
-               )}
-
-               {step === 3 && (
-                  <div className="h-full flex flex-col lg:flex-row gap-10">
-                     {isAnalyzing ? (
-                        <div className="w-full flex flex-col items-center justify-center py-20">
-                           <Loader size={48} className="text-pd-teal animate-spin mb-4" />
-                           <h3 className="font-impact text-2xl text-pd-darkblue uppercase mb-2">Processing Media</h3>
-                           <ProgressBar progress={loadingProgress} className="max-w-md" />
-                        </div>
-                     ) : (
-                        <>
-                           {/* Analysis Results Content (Reused for both view modes essentially) */}
-                           <div className="flex-1 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2">
-                              <div className="flex items-center justify-between bg-pd-lightest/30 p-4 rounded-xl border border-pd-lightest">
-                                 <h3 className="font-impact text-2xl text-pd-darkblue uppercase">Analysis Complete</h3>
-                                 <Button variant="primary" icon={Save} onClick={saveToLibrary}>Save to Library</Button>
-                              </div>
-                              <div className="prose max-w-none text-pd-slate font-medium">
-                                 {analysisResult?.mechanics || rawAnalysis}
-                              </div>
-                              {/* ... Other analysis displays ... */}
-                           </div>
-                        </>
-                     )}
-                  </div>
-               )}
-            </div>
-         </Card>
-      )}
-
-      {/* DETAIL VIEW */}
-      {view === 'detail' && selectedItem && (
-         <Card className="bg-white border-none shadow-xl !p-0 overflow-hidden">
-            <div className="flex flex-col lg:flex-row h-full min-h-[700px]">
-               <div className="lg:w-1/2 bg-black relative flex items-center justify-center">
-                  {selectedItem.type === 'photo' ? (
-                     <img src={selectedItem.url} alt={selectedItem.title} className="w-full h-full object-contain" />
-                  ) : (
-                     <video src={selectedItem.url} controls className="w-full max-h-full" />
-                  )}
-                  <button onClick={() => setView('library')} className="absolute top-4 left-4 bg-black/50 text-white p-2 rounded-full hover:bg-black transition backdrop-blur-sm">
-                     <ArrowLeft size={20} />
-                  </button>
-               </div>
-               <div className="lg:w-1/2 p-8 overflow-y-auto custom-scrollbar bg-white">
-                  <div className="flex justify-between items-start mb-6">
-                     <div>
-                        <h2 className="font-impact text-3xl text-pd-darkblue uppercase tracking-wide leading-none mb-2">{selectedItem.title}</h2>
-                        <div className="flex items-center gap-2 text-sm font-bold text-pd-softgrey uppercase tracking-wide">
-                           <Calendar size={14} /> {selectedItem.date}
-                        </div>
-                     </div>
-                     <div className="flex gap-2">
-                        {selectedItem.tags.map(tag => (
-                           <span key={tag} className="text-[10px] font-bold bg-pd-teal/10 text-pd-teal px-2 py-1 rounded uppercase border border-pd-teal/20">{tag}</span>
-                        ))}
-                     </div>
-                  </div>
-
-                  {selectedItem.analysis?.engagement_score && (
-                     <div className="bg-pd-darkblue text-white p-6 rounded-2xl mb-8 flex items-center justify-between shadow-lg relative overflow-hidden">
-                         <div className="absolute top-0 right-0 w-32 h-32 bg-pd-teal rounded-full opacity-10 -mr-10 -mt-10"></div>
-                         <div>
-                            <p className="text-xs font-bold text-pd-teal uppercase tracking-wider mb-1">Engagement Score</p>
-                            <p className="font-impact text-5xl">{selectedItem.analysis.engagement_score}/10</p>
-                         </div>
-                         <div className="text-right z-10">
-                            <Button variant="secondary" className="!py-2 !px-4 !text-xs" onClick={() => triggerIzzy('score improvement')}>
-                               Improve Score
-                            </Button>
-                         </div>
-                     </div>
-                  )}
-
-                  <div className="space-y-8">
-                     {selectedItem.analysis?.mechanics && (
-                        <div>
-                           <h4 className="font-impact text-xl text-pd-darkblue uppercase tracking-wide mb-3 flex items-center gap-2">
-                              <User size={20} className="text-pd-teal" /> Mechanics
-                           </h4>
-                           <p className="text-pd-slate leading-relaxed font-medium bg-pd-lightest/30 p-4 rounded-xl border border-pd-lightest">
-                              {selectedItem.analysis.mechanics}
-                           </p>
-                        </div>
-                     )}
-
-                     {selectedItem.analysis?.timeline && (
-                        <div>
-                           <h4 className="font-impact text-xl text-pd-darkblue uppercase tracking-wide mb-4 flex items-center gap-2">
-                              <Clock size={20} className="text-pd-teal" /> Timeline
-                           </h4>
-                           <div className="pl-2 border-l-2 border-pd-lightest ml-2 space-y-6">
-                              {selectedItem.analysis.timeline.map((item: any, idx: number) => renderTimelineItem(item, idx))}
-                           </div>
-                        </div>
-                     )}
-                     
-                     {selectedItem.notes && (
-                        <div className="bg-pd-yellow/10 p-4 rounded-xl border border-pd-yellow/30">
-                           <h4 className="font-bold text-pd-darkblue text-xs uppercase tracking-wider mb-2">My Notes</h4>
-                           <p className="text-pd-slate italic text-sm">"{selectedItem.notes}"</p>
-                        </div>
-                     )}
-                  </div>
-               </div>
-            </div>
-         </Card>
-      )}
-    </div>
-  );
-};
+                        <h3

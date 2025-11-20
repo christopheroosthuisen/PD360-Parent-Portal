@@ -1,5 +1,9 @@
 
-import { DogData, Grade, Note, Phases, RadarPoint, SkillCategory, CommunityPost, CommunityEvent, LeaderboardEntry, Achievement, Course, Coach, ServiceOption, AddOn, Facility, MediaItem } from './types';
+
+
+
+
+import { DogData, Grade, Note, Phases, RadarPoint, SkillCategory, CommunityPost, CommunityEvent, LeaderboardEntry, Achievement, Course, Coach, ServiceOption, AddOn, Facility, MediaItem, SubscriptionTier } from './types';
 
 export const PHASES: Phases = {
   STANDARD: {
@@ -156,6 +160,13 @@ export const ACHIEVEMENTS_MOCK: Achievement[] = [
   { id: '3', title: 'Social Butterfly', description: 'Completed 5 Community Events', icon: '🦋', dateEarned: '2023-10-01', isLocked: false },
   { id: '4', title: 'Scholar', description: 'Complete the Pet Parent Guide', icon: '🎓', isLocked: true },
   { id: '5', title: 'Proofing Pro', description: 'Level 4 in 10 Behaviors', icon: '🛡️', isLocked: true },
+  { id: '6', title: 'Dogtorate', description: 'Reach Dogtorate Grade', icon: '🧑‍🎓', isLocked: true },
+  { id: '7', title: 'Iron Dog', description: '30 Day Training Streak', icon: '💪', isLocked: true },
+  { id: '8', title: 'Video Star', description: 'Upload 10 Videos', icon: '📹', isLocked: true },
+  { id: '9', title: 'Perfect Recall', description: 'Level 5 Recall', icon: '🔊', isLocked: true },
+  { id: '10', title: 'Place Pro', description: 'Hold Place for 30 mins', icon: '⛺', isLocked: true },
+  { id: '11', title: 'Heel Hero', description: '5 mins perfect heeling', icon: '🐕‍🦺', isLocked: true },
+  { id: '12', title: 'Socialite', description: 'Attend 10 Events', icon: '🎉', isLocked: true },
 ];
 
 export const MOCK_COURSES: Course[] = [
@@ -245,6 +256,31 @@ export const MOCK_COACHES: Coach[] = [
   }
 ];
 
+export const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
+  {
+    id: 'tier_1',
+    name: 'Starter',
+    price: 9,
+    messageCount: 5,
+    features: ['5 Messages/mo', 'Access to PDU Alumni', '24h Response Time']
+  },
+  {
+    id: 'tier_2',
+    name: 'Standard',
+    price: 29,
+    messageCount: 25,
+    features: ['25 Messages/mo', 'Video Reviews (2/mo)', 'Priority Support'],
+    recommended: true
+  },
+  {
+    id: 'tier_3',
+    name: 'Unlimited',
+    price: 59,
+    messageCount: 'Unlimited',
+    features: ['Unlimited Messaging', 'Weekly Video Calls', 'Custom Plans']
+  }
+];
+
 export const MOCK_DOGS: DogData[] = [
   {
     id: "d1",
@@ -256,6 +292,28 @@ export const MOCK_DOGS: DogData[] = [
     weight: 65,
     color: "Golden",
     avatar: "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?auto=format&fit=crop&q=80&w=200&h=200",
+    
+    owner: {
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@example.com",
+      phone: "(555) 123-4567",
+      password: "password123"
+    },
+    emergencyContact: {
+      firstName: "John",
+      lastName: "Doe",
+      phone: "(555) 123-4567",
+      email: "john.doe@example.com",
+      relation: "Spouse"
+    },
+    notificationSettings: {
+      email: true,
+      push: true,
+      sms: false,
+      marketing: false
+    },
+
     currentScore: 285,
     streak: 12,
     achievements: ACHIEVEMENTS_MOCK,
@@ -301,6 +359,27 @@ export const MOCK_DOGS: DogData[] = [
     weight: 40,
     color: "Black & White",
     avatar: "https://images.unsplash.com/photo-1517423568366-8b83523034fd?auto=format&fit=crop&q=80&w=200&h=200",
+    
+    owner: {
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@example.com",
+      phone: "(555) 123-4567"
+    },
+    emergencyContact: {
+      firstName: "John",
+      lastName: "Doe",
+      phone: "(555) 123-4567",
+      email: "john.doe@example.com",
+      relation: "Spouse"
+    },
+    notificationSettings: {
+      email: true,
+      push: true,
+      sms: true,
+      marketing: false
+    },
+
     currentScore: 150,
     streak: 3,
     achievements: [ACHIEVEMENTS_MOCK[0]],
