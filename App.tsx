@@ -7,17 +7,18 @@ import { IzzyChat } from './components/IzzyChat';
 import { DogProfile } from './components/DogProfile';
 import { CommunityHub } from './components/CommunityHub';
 import { LearningCenter } from './components/LearningCenter';
-import { Shop } from './components/Shop';
+import { Marketplace } from './components/Marketplace';
+import { Auth } from './components/Auth';
+import { Support } from './components/Support';
 import { MOCK_DOGS, getCurrentGrade } from './constants';
 import { Menu } from 'lucide-react';
 import { DogData } from './types';
 import { CartProvider } from './CartContext';
 
 export default function App() {
+  // 'login', 'signup', 'forgot-password' or main app views
   const [activeView, setActiveView] = useState('dashboard');
-  // State to handle deep linking to specific tabs within hubs
   const [activeHubTab, setActiveHubTab] = useState<string | undefined>(undefined);
-  
   const [isSyncing, setIsSyncing] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -38,7 +39,6 @@ export default function App() {
     setIsSyncing(true);
     setTimeout(() => {
       setIsSyncing(false);
-      // Update selected dog score
       const updatedDogs = dogs.map(d => {
          if (d.id === selectedDogId) {
             return { ...d, currentScore: Math.min(d.currentScore + 10, 900), lastSync: "Just now" };
@@ -54,20 +54,35 @@ export default function App() {
      setDogs(newDogs);
   };
 
-  // Navigation helper to reset tab state when switching main views via Sidebar
   const handleViewChange = (view: string) => {
     setActiveView(view);
     setActiveHubTab(undefined);
   };
 
-  // Navigation helper for Dashboard widgets to set specific tabs
   const handleDashboardNav = (view: string, tab?: string) => {
     setActiveView(view);
     if (tab) setActiveHubTab(tab);
   };
 
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to log out?")) {
+      setActiveView('login');
+    }
+  };
+
   if (!isLoaded) {
     return <AppLoadingScreen />;
+  }
+
+  // Auth Views Render Full Screen
+  if (['login', 'signup', 'forgot-password'].includes(activeView)) {
+     return (
+        <Auth 
+           view={activeView as any} 
+           onNavigate={(v) => setActiveView(v)} 
+           onLogin={() => setActiveView('dashboard')}
+        />
+     );
   }
 
   return (
@@ -82,6 +97,7 @@ export default function App() {
           gradeName={gradeInfo.current.name}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 overflow-y-auto relative h-full bg-slate-50">
@@ -91,7 +107,12 @@ export default function App() {
               <button onClick={() => setIsMobileMenuOpen(true)} className="text-pd-darkblue p-2 hover:bg-pd-lightest rounded-lg transition">
                 <Menu size={28} />
               </button>
-              <span className="font-impact text-2xl text-pd-darkblue tracking-wide">PD360</span>
+              <div className="flex items-center gap-2">
+                 <div className="w-8 h-8 rounded-lg bg-pd-darkblue overflow-hidden">
+                   <img src="logo_2.png" alt="Logo" className="w-full h-full object-cover" />
+                 </div>
+                 <span className="font-impact text-2xl text-pd-darkblue tracking-wide">PD360</span>
+              </div>
             </div>
             <div className="w-10 h-10 bg-pd-teal rounded-xl flex items-center justify-center text-white font-bold text-lg border-2 border-white shadow-md">
               {selectedDog.name[0]}
@@ -118,18 +139,25 @@ export default function App() {
             
             {activeView === 'learning' && <LearningCenter dogData={selectedDog} />}
             
-            {activeView === 'shop' && <Shop />}
+            {activeView === 'marketplace' && (
+              <Marketplace 
+                dogData={selectedDog} 
+                initialTab={activeHubTab as any} 
+              />
+            )}
 
             {activeView === 'profile' && (
               <DogProfile dog={selectedDog} onUpdate={handleDogUpdate} />
             )}
 
-            {(activeView === 'community') && (
+            {activeView === 'community' && (
               <CommunityHub 
                 dogData={selectedDog} 
                 defaultTab={activeHubTab as any || 'feed'} 
               />
             )}
+
+            {activeView === 'support' && <Support />}
           </div>
         </main>
         

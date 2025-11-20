@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo } from 'react';
 import { DogData, CommunityPost, CommunityEvent, LeaderboardEntry, Reaction, Badge } from '../types';
 import { MOCK_POSTS, MOCK_EVENTS, LEADERBOARD_DATA } from '../constants';
@@ -20,7 +22,12 @@ import {
   Medal,
   PawPrint,
   Megaphone,
-  Users
+  Users,
+  Filter,
+  ChevronDown,
+  Info,
+  User,
+  Award
 } from 'lucide-react';
 
 interface CommunityProps {
@@ -48,12 +55,15 @@ const ENHANCED_POSTS: CommunityPost[] = MOCK_POSTS.map(post => ({
     ]
 }));
 
-// Transform Leaderboard
-const ENHANCED_LEADERBOARD: LeaderboardEntry[] = LEADERBOARD_DATA.map(entry => ({
+// Transform Leaderboard & Add mock filtering fields
+const ENHANCED_LEADERBOARD: (LeaderboardEntry & { grade?: string, pack?: string, age?: number })[] = LEADERBOARD_DATA.map((entry, i) => ({
     ...entry,
     badges: entry.rank === 1 ? [MOCK_BADGES.agility_champ] : [],
-    breed: entry.dogName === 'Barnaby' ? 'Golden Retriever' : entry.dogName === 'Luna' ? 'Border Collie' : 'Mixed Breed',
-    location: entry.dogName === 'Barnaby' ? 'Scottsdale' : 'Phoenix'
+    breed: entry.dogName === 'Barnaby' ? 'Golden Retriever' : entry.dogName === 'Luna' ? 'Border Collie' : entry.dogName === 'Maximus' ? 'German Shepherd' : 'Mixed Breed',
+    location: entry.dogName === 'Barnaby' || entry.dogName === 'Bella' ? 'Scottsdale, AZ' : 'Phoenix, AZ',
+    grade: entry.score > 800 ? 'Dogtorate' : entry.score > 500 ? 'Masters' : entry.score > 300 ? 'College' : 'Elementary',
+    pack: i % 2 === 0 ? 'Agility All-Stars' : 'Hiking Hounds',
+    age: 2 + i // Mock ages
 }));
 
 export const Community: React.FC<CommunityProps> = ({ dogData }) => {
@@ -64,7 +74,14 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   
   // Leaderboard State
-  const [leaderboardTab, setLeaderboardTab] = useState<'global' | 'breed' | 'local'>('global');
+  const [isLeaderboardExpanded, setIsLeaderboardExpanded] = useState(false);
+  const [leaderboardFilters, setLeaderboardFilters] = useState({
+     location: 'All',
+     grade: 'All',
+     pack: 'All',
+     breed: 'All',
+     age: 'All'
+  });
 
   const handleReaction = (postId: string, reactionType: Reaction['type']) => {
     setPosts(prev => prev.map(post => {
@@ -73,7 +90,6 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
         let newReactions = post.reactions || [];
         
         if (existingReaction) {
-             // Toggle off if already reacted, or just increment? Let's toggle.
              if (existingReaction.userReacted) {
                  newReactions = newReactions.map(r => r.type === reactionType ? { ...r, count: r.count - 1, userReacted: false } : r);
              } else {
@@ -126,26 +142,79 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
   };
 
   const filteredLeaderboard = useMemo(() => {
-      let data = [...ENHANCED_LEADERBOARD];
-      if (leaderboardTab === 'breed') {
-          // Filter by current dog breed (mock logic)
-          data = data.filter(e => e.breed === dogData.breeds[0] || e.breed === 'Golden Retriever'); 
-      } else if (leaderboardTab === 'local') {
-          data = data.filter(e => e.location === 'Scottsdale');
-      }
-      return data.sort((a, b) => b.score - a.score);
-  }, [leaderboardTab, dogData.breeds]);
+      return ENHANCED_LEADERBOARD.filter(e => {
+         if (leaderboardFilters.location !== 'All' && !e.location?.includes(leaderboardFilters.location)) return false;
+         if (leaderboardFilters.grade !== 'All' && e.grade !== leaderboardFilters.grade) return false;
+         if (leaderboardFilters.pack !== 'All' && e.pack !== leaderboardFilters.pack) return false;
+         if (leaderboardFilters.breed !== 'All' && e.breed !== leaderboardFilters.breed) return false;
+         if (leaderboardFilters.age !== 'All') {
+             // Simple age range logic for demo
+             if (leaderboardFilters.age === 'Puppy (<1)' && (e.age || 0) >= 1) return false;
+             if (leaderboardFilters.age === 'Adult (1-7)' && ((e.age || 0) < 1 || (e.age || 0) > 7)) return false;
+             if (leaderboardFilters.age === 'Senior (7+)' && (e.age || 0) <= 7) return false;
+         }
+         return true;
+      }).sort((a, b) => b.score - a.score);
+  }, [leaderboardFilters]);
+
+  // Unique values for filters
+  const uniqueLocations = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.location?.split(',')[0] || 'Unknown'))), []);
+  const uniqueGrades = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.grade || 'Unknown'))), []);
+  const uniquePacks = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.pack || 'None'))), []);
+  const uniqueBreeds = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.breed || 'Mixed'))), []);
+
+  const LeaderboardRow = ({ entry, index, expanded = false }: { entry: typeof ENHANCED_LEADERBOARD[0], index: number, expanded?: boolean }) => (
+    <div 
+      className={`flex items-center gap-4 p-3 rounded-xl border transition-colors ${
+        entry.dogName === dogData.name 
+          ? 'bg-pd-teal/20 border-pd-teal' 
+          : expanded ? 'bg-white border-pd-lightest hover:border-pd-teal/50' : 'bg-white/5 border-white/5 hover:bg-white/10'
+      }`}
+    >
+      <div className="w-8 flex justify-center shrink-0">
+          {index === 0 ? <Medal size={24} className="text-yellow-400 fill-yellow-400/20" /> :
+           index === 1 ? <Medal size={24} className="text-gray-300 fill-gray-300/20" /> :
+           index === 2 ? <Medal size={24} className="text-amber-700 fill-amber-700/20" /> :
+           <span className={`font-impact text-lg ${expanded ? 'text-pd-darkblue' : 'text-pd-softgrey'}`}>#{index + 1}</span>
+          }
+      </div>
+      
+      <img src={entry.avatar} alt={entry.dogName} className="w-10 h-10 rounded-lg object-cover bg-white/10 border border-white/10" />
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+            <p className={`font-impact text-lg tracking-wide truncate leading-none ${expanded ? 'text-pd-darkblue' : 'text-white'}`}>{entry.dogName}</p>
+            {entry.badges && entry.badges.length > 0 && (() => {
+                const Icon = entry.badges[0].icon;
+                return (
+                    <span className="text-xs">
+                        {typeof Icon === 'string' ? Icon : <Icon size={12} />}
+                    </span>
+                );
+            })()}
+        </div>
+        <div className="flex gap-2 text-[10px] font-bold uppercase tracking-wide opacity-70">
+            <span className={expanded ? 'text-pd-slate' : 'text-pd-lightest'}>{entry.breed}</span>
+            {expanded && <span>• {entry.location}</span>}
+        </div>
+      </div>
+      
+      <div className="text-right">
+         <p className={`text-xs font-bold uppercase ${expanded ? 'text-pd-teal' : 'text-pd-lightest/70'}`}>{entry.score} pts</p>
+         {expanded && <p className="text-[10px] text-pd-softgrey font-bold">{entry.grade}</p>}
+      </div>
+
+      <div className={expanded ? 'text-pd-slate' : 'text-pd-lightest'}>
+        {entry.trend === 'up' && <TrendingUp size={16} className="text-pd-teal" />}
+        {entry.trend === 'down' && <TrendingDown size={16} className="text-rose-400" />}
+        {entry.trend === 'stable' && <Minus size={16} className="text-pd-softgrey" />}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">PD360 SOCIAL</h1>
-          <p className="text-pd-slate text-lg font-medium">Share wins, earn medals, and compete.</p>
-        </div>
-      </div>
-
+      
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Left Column: Feed (2/3 width) */}
@@ -262,8 +331,8 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
         {/* Right Column: Leaderboard & Medal Case */}
         <div className="space-y-8">
           
-          {/* Advanced Leaderboard */}
-          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden !p-0">
+          {/* Advanced Leaderboard Widget */}
+          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden !p-0 flex flex-col">
             <div className="absolute top-0 right-0 w-40 h-40 bg-pd-teal rounded-full opacity-10 -mr-10 -mt-10 blur-2xl"></div>
             
             <div className="p-6 pb-0 relative z-10">
@@ -274,64 +343,32 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
                 <h3 className="font-impact text-2xl tracking-wide uppercase">LEADERBOARD</h3>
                </div>
                
-               {/* Leaderboard Tabs */}
+               {/* Quick Filters (Mini) */}
                <div className="flex p-1 bg-black/20 rounded-xl mb-4">
-                   {['global', 'breed', 'local'].map(tab => (
-                       <button 
-                          key={tab}
-                          onClick={() => setLeaderboardTab(tab as any)}
-                          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${leaderboardTab === tab ? 'bg-pd-teal text-pd-darkblue shadow-sm' : 'text-pd-lightest hover:text-white'}`}
-                       >
-                          {tab}
-                       </button>
-                   ))}
+                   <button 
+                      onClick={() => setLeaderboardFilters(prev => ({ ...prev, location: 'All' }))}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${leaderboardFilters.location === 'All' ? 'bg-pd-teal text-pd-darkblue shadow-sm' : 'text-pd-lightest hover:text-white'}`}
+                   >
+                      Global
+                   </button>
+                   <button 
+                      onClick={() => setLeaderboardFilters(prev => ({ ...prev, location: 'Scottsdale' }))}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${leaderboardFilters.location !== 'All' ? 'bg-pd-teal text-pd-darkblue shadow-sm' : 'text-pd-lightest hover:text-white'}`}
+                   >
+                      Local
+                   </button>
                </div>
             </div>
 
-            <div className="space-y-1 pb-6 relative z-10 max-h-[400px] overflow-y-auto custom-scrollbar">
-              {filteredLeaderboard.map((entry, index) => (
-                <div 
-                  key={index} 
-                  className={`flex items-center gap-4 p-3 mx-3 rounded-xl border transition-colors ${
-                    entry.dogName === dogData.name 
-                      ? 'bg-pd-teal/20 border-pd-teal' 
-                      : 'bg-white/5 border-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="w-8 flex justify-center shrink-0">
-                      {index === 0 ? <Medal size={24} className="text-yellow-400 fill-yellow-400/20" /> :
-                       index === 1 ? <Medal size={24} className="text-gray-300 fill-gray-300/20" /> :
-                       index === 2 ? <Medal size={24} className="text-amber-700 fill-amber-700/20" /> :
-                       <span className="font-impact text-lg text-pd-softgrey">#{index + 1}</span>
-                      }
-                  </div>
-                  
-                  <img src={entry.avatar} alt={entry.dogName} className="w-10 h-10 rounded-lg object-cover bg-white/10 border border-white/10" />
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <p className="font-impact text-lg tracking-wide truncate leading-none">{entry.dogName}</p>
-                        {entry.badges && entry.badges.length > 0 && (() => {
-                            const Icon = entry.badges[0].icon;
-                            return (
-                                <span className="text-xs">
-                                    {typeof Icon === 'string' ? Icon : <Icon size={12} />}
-                                </span>
-                            );
-                        })()}
-                    </div>
-                    <p className="text-xs font-bold text-pd-lightest/70 uppercase">{entry.score} pts</p>
-                  </div>
-                  
-                  <div className="text-pd-lightest">
-                    {entry.trend === 'up' && <TrendingUp size={16} className="text-pd-teal" />}
-                    {entry.trend === 'down' && <TrendingDown size={16} className="text-rose-400" />}
-                    {entry.trend === 'stable' && <Minus size={16} className="text-pd-softgrey" />}
-                  </div>
-                </div>
+            <div className="space-y-1 pb-6 relative z-10 max-h-[400px] overflow-y-auto custom-scrollbar px-3">
+              {filteredLeaderboard.slice(0, 5).map((entry, index) => (
+                <LeaderboardRow key={index} entry={entry} index={index} />
               ))}
             </div>
-            <button className="w-full py-3 bg-white/5 hover:bg-white/10 text-center font-impact text-pd-teal uppercase tracking-wide transition-colors text-sm border-t border-white/5">
+            <button 
+              onClick={() => setIsLeaderboardExpanded(true)}
+              className="w-full py-3 bg-white/5 hover:bg-white/10 text-center font-impact text-pd-teal uppercase tracking-wide transition-colors text-sm border-t border-white/5 mt-auto"
+            >
               View Full Rankings
             </button>
           </Card>
@@ -395,7 +432,96 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
         </div>
       </div>
 
-      {/* Event Registration Modal (Reused from previous) */}
+      {/* Leaderboard Expanded Modal */}
+      <Modal isOpen={isLeaderboardExpanded} onClose={() => setIsLeaderboardExpanded(false)} title="Global Rankings">
+         <div className="space-y-6 min-h-[60vh]">
+            {/* Filters Bar */}
+            <div className="bg-pd-lightest/30 p-4 rounded-2xl border border-pd-lightest flex flex-col gap-4">
+               <div className="flex items-center gap-2 text-pd-darkblue font-bold uppercase text-sm tracking-wider mb-2">
+                   <Filter size={16} /> Filters
+               </div>
+               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="relative">
+                     <select 
+                        className="w-full appearance-none bg-white border border-pd-lightest px-3 py-2 rounded-lg text-xs font-bold text-pd-darkblue focus:outline-none focus:border-pd-teal"
+                        value={leaderboardFilters.location}
+                        onChange={e => setLeaderboardFilters(prev => ({ ...prev, location: e.target.value }))}
+                     >
+                        <option value="All">Location: All</option>
+                        {uniqueLocations.map(l => <option key={l} value={l}>{l}</option>)}
+                     </select>
+                     <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-pd-softgrey pointer-events-none" />
+                  </div>
+                  <div className="relative">
+                     <select 
+                        className="w-full appearance-none bg-white border border-pd-lightest px-3 py-2 rounded-lg text-xs font-bold text-pd-darkblue focus:outline-none focus:border-pd-teal"
+                        value={leaderboardFilters.grade}
+                        onChange={e => setLeaderboardFilters(prev => ({ ...prev, grade: e.target.value }))}
+                     >
+                        <option value="All">Grade: All</option>
+                        {uniqueGrades.map(g => <option key={g} value={g}>{g}</option>)}
+                     </select>
+                     <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-pd-softgrey pointer-events-none" />
+                  </div>
+                  <div className="relative">
+                     <select 
+                        className="w-full appearance-none bg-white border border-pd-lightest px-3 py-2 rounded-lg text-xs font-bold text-pd-darkblue focus:outline-none focus:border-pd-teal"
+                        value={leaderboardFilters.pack}
+                        onChange={e => setLeaderboardFilters(prev => ({ ...prev, pack: e.target.value }))}
+                     >
+                        <option value="All">Pack: All</option>
+                        {uniquePacks.map(p => <option key={p} value={p}>{p}</option>)}
+                     </select>
+                     <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-pd-softgrey pointer-events-none" />
+                  </div>
+                  <div className="relative">
+                     <select 
+                        className="w-full appearance-none bg-white border border-pd-lightest px-3 py-2 rounded-lg text-xs font-bold text-pd-darkblue focus:outline-none focus:border-pd-teal"
+                        value={leaderboardFilters.breed}
+                        onChange={e => setLeaderboardFilters(prev => ({ ...prev, breed: e.target.value }))}
+                     >
+                        <option value="All">Breed: All</option>
+                        {uniqueBreeds.map(b => <option key={b} value={b}>{b}</option>)}
+                     </select>
+                     <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-pd-softgrey pointer-events-none" />
+                  </div>
+                  <div className="relative">
+                     <select 
+                        className="w-full appearance-none bg-white border border-pd-lightest px-3 py-2 rounded-lg text-xs font-bold text-pd-darkblue focus:outline-none focus:border-pd-teal"
+                        value={leaderboardFilters.age}
+                        onChange={e => setLeaderboardFilters(prev => ({ ...prev, age: e.target.value }))}
+                     >
+                        <option value="All">Age: All</option>
+                        <option value="Puppy (<1)">Puppy (&lt;1)</option>
+                        <option value="Adult (1-7)">Adult (1-7)</option>
+                        <option value="Senior (7+)">Senior (7+)</option>
+                     </select>
+                     <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-pd-softgrey pointer-events-none" />
+                  </div>
+               </div>
+            </div>
+
+            {/* Expanded List */}
+            <div className="space-y-2">
+               <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-bold text-pd-softgrey uppercase tracking-wider border-b-2 border-pd-lightest">
+                   <div className="col-span-1 text-center">Rank</div>
+                   <div className="col-span-6">Dog & Details</div>
+                   <div className="col-span-3 text-right">Score / Grade</div>
+                   <div className="col-span-2 text-center">Trend</div>
+               </div>
+               <div className="max-h-[500px] overflow-y-auto custom-scrollbar space-y-2">
+                   {filteredLeaderboard.map((entry, index) => (
+                       <LeaderboardRow key={index} entry={entry} index={index} expanded={true} />
+                   ))}
+                   {filteredLeaderboard.length === 0 && (
+                       <div className="text-center py-12 text-pd-softgrey italic">No pups found matching these filters.</div>
+                   )}
+               </div>
+            </div>
+         </div>
+      </Modal>
+
+      {/* Event Registration Modal */}
       <Modal isOpen={!!selectedEvent} onClose={closeEventModal} title={registrationSuccess ? "You're Going!" : "Registration"}>
          {selectedEvent && (
             registrationSuccess ? (

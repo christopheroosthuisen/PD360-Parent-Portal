@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo } from 'react';
 import { DogData, ServiceOption, AddOn } from '../types';
 import { BOOKING_SERVICES, BOOKING_ADDONS, MOCK_FACILITIES } from '../constants';
@@ -115,6 +117,13 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-24">
+       {/* Header */}
+       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+         <div>
+           <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">BOOK A SPOT</h1>
+           <p className="text-pd-slate text-lg">Secure boarding or day school at a Partners facility.</p>
+         </div>
+       </div>
        
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Form Area */}
@@ -376,7 +385,7 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
                                      </p>
                                      <p className="text-pd-slate text-sm font-medium">{dropOffTime} Drop • {pickUpTime} Pick</p>
                                   </div>
-                               </div>
+                                </div>
                             </div>
                             
                             <div>

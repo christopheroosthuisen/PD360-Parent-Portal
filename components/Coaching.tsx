@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { Coach } from '../types';
 import { MOCK_COACHES } from '../constants';
@@ -163,7 +165,7 @@ export const Coaching: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">FIND A COACH</h1>
+          <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">FIND A PRO</h1>
           <p className="text-pd-slate text-lg">Book 1-on-1 sessions with certified PDU Alumni for personalized guidance.</p>
         </div>
         

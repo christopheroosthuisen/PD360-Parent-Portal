@@ -1,8 +1,7 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { PHASES } from '../constants';
-import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader, Bell, ShoppingBag } from 'lucide-react';
+import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader, Bell, Store, LifeBuoy, LogOut } from 'lucide-react';
 import { DogData } from '../types';
 import { generateImage } from '../services/gemini';
 
@@ -69,7 +68,6 @@ export const Button: React.FC<ButtonProps> = ({ children, variant = "primary", o
     secondary: "bg-white text-pd-darkblue border-b-4 border-pd-lightest hover:border-pd-darkblue hover:-translate-y-0.5 hover:shadow-md active:border-b-0 active:translate-y-1 active:mt-1 border-2 border-t-transparent border-l-transparent border-r-transparent",
     ghost: "bg-transparent text-pd-slate hover:text-pd-darkblue hover:bg-pd-lightest",
     accent: "bg-pd-teal text-pd-darkblue border-b-4 border-pd-darkblue hover:border-white hover:-translate-y-0.5 hover:shadow-lg hover:text-white active:border-b-0 active:translate-y-1 active:mt-1",
-    // Updated Gemini variant to match brand colors (Teal/DarkBlue gradient)
     gemini: "bg-gradient-to-r from-pd-darkblue to-pd-teal text-white border-b-4 border-pd-slate hover:border-white hover:-translate-y-0.5 hover:shadow-lg active:border-b-0 active:translate-y-1 active:mt-1"
   };
   
@@ -191,7 +189,7 @@ export const AppLoadingScreen: React.FC = () => (
        <div className="absolute inset-0 bg-pd-teal/10 rounded-full animate-ping duration-1000"></div>
        <div className="absolute inset-4 bg-pd-yellow/20 rounded-full animate-ping delay-300 duration-1000"></div>
        <div className="relative w-full h-full bg-white border-4 border-pd-lightest rounded-full flex items-center justify-center shadow-xl z-10 overflow-hidden">
-          <div className="text-6xl animate-bounce">🐕</div>
+          <img src="logo_4.png" alt="Logo" className="w-full h-full object-cover animate-bounce" />
        </div>
     </div>
     <h1 className="font-impact text-4xl md:text-5xl text-pd-darkblue tracking-wide mb-2 uppercase text-center">
@@ -230,6 +228,7 @@ interface SidebarProps {
   gradeName: string;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: (open: boolean) => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -240,7 +239,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectDog, 
   gradeName, 
   isMobileMenuOpen, 
-  setIsMobileMenuOpen 
+  setIsMobileMenuOpen,
+  onLogout
 }) => {
   const [isDogMenuOpen, setIsDogMenuOpen] = useState(false);
   const selectedDog = dogs.find(d => d.id === selectedDogId) || dogs[0];
@@ -249,8 +249,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', icon: Activity, label: 'Dashboard' },
     { id: 'training_hub', icon: Target, label: 'Training Hub' },
     { id: 'learning', icon: BookOpen, label: 'Learning Center' },
-    { id: 'community', icon: Users, label: 'Community' },
-    { id: 'shop', icon: ShoppingBag, label: 'Pro Shop' },
+    { id: 'community', icon: Users, label: 'Socials' },
+    { id: 'marketplace', icon: Store, label: 'Marketplace' },
   ];
 
   const handleNav = (id: string) => {
@@ -268,16 +268,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside className={`fixed lg:relative inset-y-0 left-0 w-72 bg-white border-r-2 border-pd-lightest flex flex-col justify-between z-50 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl lg:shadow-none`}>
-        <div>
-          <div className="p-8 flex flex-col gap-2">
+        <div className="flex flex-col h-full">
+          <div className="p-8 flex flex-col gap-2 shrink-0">
             <div className="flex items-center gap-3">
-               <div className="w-12 h-12 bg-pd-darkblue rounded-2xl flex items-center justify-center text-pd-yellow shadow-[4px_4px_0px_0px_#34C6B9] hover:translate-y-[-2px] transition-transform cursor-default">
-                <Dog size={28} />
-              </div>
-              <div className="flex flex-col select-none">
+               {/* Logo Icon */}
+               <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-[4px_4px_0px_0px_#34C6B9] hover:translate-y-[-2px] transition-transform cursor-default overflow-hidden bg-pd-darkblue">
+                  <img src="logo_1.png" alt="PD Logo" className="w-full h-full object-cover" />
+               </div>
+               <div className="flex flex-col select-none">
                  <span className="font-impact text-3xl text-pd-darkblue tracking-wide leading-none">PARTNERS</span>
                  <span className="font-impact text-3xl text-pd-darkblue tracking-wide leading-none">DOGS</span>
-              </div>
+               </div>
             </div>
             <div className="pl-[3.75rem]">
                <span className="font-impact text-2xl text-pd-teal tracking-widest leading-none select-none">360</span>
@@ -285,7 +286,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Dog Switcher */}
-          <div className="px-6 relative">
+          <div className="px-6 relative shrink-0">
              <button 
                 onClick={() => setIsDogMenuOpen(!isDogMenuOpen)}
                 className="w-full bg-white hover:bg-pd-lightest border-2 border-pd-lightest rounded-2xl p-3 flex items-center justify-between transition-all shadow-sm hover:shadow-md group"
@@ -331,7 +332,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
              )}
           </div>
 
-          <nav className="mt-6 px-6 space-y-3">
+          <nav className="mt-6 px-6 space-y-3 flex-1 overflow-y-auto custom-scrollbar">
             {menuItems.map((item) => (
               <button
                 key={item.id}
@@ -346,14 +347,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>{item.label}</span>
               </button>
             ))}
+            
+            {/* Support Link */}
+            <button
+               onClick={() => handleNav('support')}
+               className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-200 group font-impact tracking-wide text-lg ${
+                  activeView === 'support' 
+                    ? 'bg-pd-darkblue text-white shadow-[0_4px_0_0_#34C6B9] translate-y-[-2px]' 
+                    : 'text-pd-softgrey hover:bg-pd-lightest hover:text-pd-darkblue'
+               }`}
+            >
+               <LifeBuoy size={22} className={`transition-colors ${activeView === 'support' ? "text-pd-yellow" : "group-hover:text-pd-teal text-pd-softgrey"}`} />
+               <span>Support</span>
+            </button>
           </nav>
-        </div>
 
-        <div className="p-6 border-t-2 border-pd-lightest bg-pd-lightest/30">
-          <div className="flex items-center justify-center">
-             <p className="text-xs text-pd-softgrey font-bold uppercase tracking-widest">
-                Current Grade: <span className="text-pd-darkblue font-black">{gradeName}</span>
-             </p>
+          <div className="p-6 border-t-2 border-pd-lightest bg-pd-lightest/30 shrink-0 space-y-4">
+            <div className="flex items-center justify-center">
+               <p className="text-xs text-pd-softgrey font-bold uppercase tracking-widest">
+                  Current Grade: <span className="text-pd-darkblue font-black">{gradeName}</span>
+               </p>
+            </div>
+            {onLogout && (
+               <button 
+                  onClick={onLogout}
+                  className="w-full flex items-center justify-center gap-2 text-xs font-bold text-rose-500 uppercase hover:bg-rose-50 py-2 rounded-lg transition-colors"
+               >
+                  <LogOut size={14} /> Log Out
+               </button>
+            )}
           </div>
         </div>
       </aside>

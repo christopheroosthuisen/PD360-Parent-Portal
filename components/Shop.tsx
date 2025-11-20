@@ -173,7 +173,7 @@ export const Shop: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6">
          <div>
-            <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">PRO SHOP</h1>
+            <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">SHOP</h1>
             <p className="text-pd-slate text-lg font-medium">Curated professional tools for your training journey.</p>
          </div>
          <div className="flex items-center gap-3">
