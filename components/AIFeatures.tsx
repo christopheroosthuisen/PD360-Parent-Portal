@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, ChevronRight, Loader, BookOpen, Image as ImageIcon, Video as VideoIcon, Upload, X, Calendar, RefreshCw, Sun, Moon, Tv, Trash2, LayoutTemplate } from 'lucide-react';
+import { Sparkles, ChevronRight, Loader, Image as ImageIcon, Upload, X, Sun, Moon, Tv, RefreshCw, LayoutTemplate } from 'lucide-react';
 import { Button, Card, ProgressBar } from './UI';
 import { DogData, DailyPlan } from '../types';
 import { getCurrentGrade, SKILL_TREE, TRAINER_NOTES } from '../constants';
@@ -69,7 +69,6 @@ export const AIAssistant: React.FC<{ dogData: DogData }> = ({ dogData }) => {
     
     Context: ${context}`;
 
-    // Use Gemini 3 Pro Preview for the chatbot
     const responseText = await generateContent(userText, "gemini-3-pro-preview", systemPrompt);
 
     setMessages(prev => [...prev, { role: 'ai', text: responseText }]);
@@ -270,7 +269,6 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
   // Prepare skill list for Gemini context
   const availableSkills = SKILL_TREE.flatMap(cat => cat.skills.map(s => s.name));
 
-  // Load plan from localStorage on mount
   useEffect(() => {
     const savedPlan = localStorage.getItem(`pd360_homework_${dogData.id}`);
     if (savedPlan) {
@@ -282,14 +280,12 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     }
   }, [dogData.id]);
 
-  // Save plan to localStorage whenever it updates
   useEffect(() => {
     if (plan) {
       localStorage.setItem(`pd360_homework_${dogData.id}`, JSON.stringify(plan));
     }
   }, [plan, dogData.id]);
 
-  // Simulate progress
   useEffect(() => {
     let interval: any;
     if (isLoading) {
@@ -310,7 +306,6 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     setIsLoading(true);
     const gradeInfo = getCurrentGrade(dogData.currentScore);
     
-    // Prompt engineering with actual app skills
     const prompt = `Generate a 7-day structured training plan for ${dogData.name}, a ${dogData.breeds.join(', ')} currently in ${gradeInfo.current.name} grade.
     
     CRITICAL: You must select exercises ONLY from the following list of known skills. Do not invent new names.
@@ -355,7 +350,7 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     const prompt = `Regenerate a single day of training for ${dogData.name} (${gradeInfo.current.name}).
     Day: ${plan[dayIndex].day}.
     
-    CRITICAL: Select exercises ONLY from: ${availableSkills.join(', ')}.
+    CRITICAL: Select exercises ONLY from this exact list: ${availableSkills.join(', ')}.
 
     Required JSON Schema:
     {
@@ -368,7 +363,7 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     Strictly return ONLY the JSON object for this day.`;
 
     try {
-       const responseText = await generateContent(prompt, "gemini-3-pro-preview", "You are a PD360 Trainer.");
+       const responseText = await generateContent(prompt, "gemini-3-pro-preview", "You are a PD360 Trainer. Only use skills from the provided list.");
        const cleanJson = responseText.replace(/```json\n?|\n?```/g, '').trim();
        const newDay = JSON.parse(cleanJson);
        
@@ -402,7 +397,7 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
         
         <div className="flex gap-3">
             {plan && (
-                <Button variant="secondary" onClick={clearPlan} icon={Trash2} className="!px-6">
+                <Button variant="secondary" onClick={clearPlan} icon={X} className="!px-6">
                     Clear
                 </Button>
             )}

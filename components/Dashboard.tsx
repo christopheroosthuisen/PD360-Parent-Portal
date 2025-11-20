@@ -1,18 +1,11 @@
 
-
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   RefreshCw, 
-  CheckCircle, 
   TrendingUp, 
-  Settings,
-  User,
-  Download,
   Share2,
   Flame,
   Award,
-  ChevronRight,
   Calendar,
   Video,
   ClipboardList,
@@ -21,11 +14,10 @@ import {
   Users,
   ArrowUpRight,
   Send,
-  MessageCircle,
-  X,
   Target,
   AlertTriangle,
-  Brain
+  Brain,
+  ShoppingBag
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -42,7 +34,7 @@ import {
   Radar 
 } from 'recharts';
 import { Card, Button, Modal } from './UI';
-import { DogData, Grade, Note, Achievement } from '../types';
+import { DogData, Grade, Note } from '../types';
 import { FULL_HISTORY_DATA, RADAR_DATA, TRAINER_NOTES, ACHIEVEMENTS_MOCK } from '../constants';
 
 interface DashboardProps {
@@ -58,20 +50,15 @@ type TimeRange = 7 | 14 | 30 | 60 | 90;
 export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSyncing, onSync, navigate }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   
-  // Filter history based on selected range
   const chartData = useMemo(() => {
     return FULL_HISTORY_DATA.slice(-timeRange);
   }, [timeRange]);
 
-  // Chat State
   const [chatInput, setChatInput] = useState('');
   const [chatHistory, setChatHistory] = useState<Note[]>(TRAINER_NOTES);
   const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // Badges Modal
   const [showBadgesModal, setShowBadgesModal] = useState(false);
 
-  // Scroll chat to bottom
   useEffect(() => {
     if (chatEndRef.current) {
         chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -92,7 +79,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
      setChatHistory(prev => [...prev, newMessage]);
      setChatInput('');
 
-     // Simulate trainer response
      setTimeout(() => {
          const response: Note = {
              id: Date.now() + 1,
@@ -107,7 +93,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
 
   const nextReservation = dogData.reservations?.find(r => r.status === 'Upcoming');
 
-  // Determine Insights from Radar Data
   const { strongestSkill, weakestSkill } = useMemo(() => {
      const sorted = [...RADAR_DATA].sort((a, b) => b.A - a.A);
      return {
@@ -143,7 +128,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
           <Button 
             variant="accent"
             onClick={onSync} 
-            icon={isSyncing ? RefreshCw : CheckCircle}
+            icon={isSyncing ? RefreshCw : undefined}
             className={`${isSyncing ? "animate-pulse" : ""} shadow-lg`}
             disabled={isSyncing}
           >
@@ -152,13 +137,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
         </div>
       </div>
 
-      {/* Command Center Grid - Updated Widgets */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Command Center Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
          
          {/* Active Training Widget */}
          <div 
             onClick={() => navigate('training_hub', 'session')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-teal hover:shadow-md transition-all cursor-pointer group col-span-1"
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-teal hover:shadow-md transition-all cursor-pointer group"
          >
              <div className="flex justify-between items-start mb-4">
                  <div className="p-2.5 bg-pd-teal/10 rounded-xl text-pd-teal group-hover:bg-pd-teal group-hover:text-white transition-colors">
@@ -173,7 +158,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
          {/* Skills Widget */}
          <div 
             onClick={() => navigate('training_hub', 'skills')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-yellow hover:shadow-md transition-all cursor-pointer group col-span-1"
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-yellow hover:shadow-md transition-all cursor-pointer group"
          >
              <div className="flex justify-between items-start mb-4">
                  <div className="p-2.5 bg-pd-yellow/20 rounded-xl text-pd-darkblue group-hover:bg-pd-yellow transition-colors">
@@ -188,7 +173,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
          {/* Calendar Widget */}
          <div 
             onClick={() => navigate('training_hub', 'schedule')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
          >
              <div className="flex justify-between items-start mb-4">
                  <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -203,7 +188,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
          {/* Media Widget */}
          <div 
             onClick={() => navigate('training_hub', 'analysis')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group"
          >
              <div className="flex justify-between items-start mb-4">
                  <div className="p-2.5 bg-purple-50 rounded-xl text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition-colors">
@@ -218,7 +203,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
          {/* University Widget */}
          <div 
             onClick={() => navigate('learning')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group"
          >
              <div className="flex justify-between items-start mb-4">
                  <div className="p-2.5 bg-rose-50 rounded-xl text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
@@ -233,7 +218,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
          {/* Community Widget */}
          <div 
             onClick={() => navigate('community')}
-            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer group col-span-1"
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer group"
          >
              <div className="flex justify-between items-start mb-4">
                  <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
@@ -244,6 +229,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
              <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">Community</p>
              <p className="text-xs text-pd-slate font-medium">Events & support</p>
          </div>
+
+         {/* Shop Widget (New) */}
+         <div 
+            onClick={() => navigate('shop')}
+            className="bg-white p-5 rounded-2xl border-2 border-pd-lightest hover:border-pd-darkblue hover:shadow-md transition-all cursor-pointer group"
+         >
+             <div className="flex justify-between items-start mb-4">
+                 <div className="p-2.5 bg-pd-lightest rounded-xl text-pd-darkblue group-hover:bg-pd-darkblue group-hover:text-white transition-colors">
+                    <ShoppingBag size={24} />
+                 </div>
+                 <ArrowUpRight size={20} className="text-pd-lightest group-hover:text-pd-darkblue transition-colors" />
+             </div>
+             <p className="font-impact text-xl text-pd-darkblue leading-tight mb-1">Pro Shop</p>
+             <p className="text-xs text-pd-slate font-medium">Get training gear</p>
+         </div>
       </div>
 
       {/* Main Content Grid */}
@@ -252,7 +252,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
         {/* Left Column (2 Cols Wide): Skill Balance & Charts */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Enhanced Skill Balance Module - Moved to Main Column */}
+          {/* Enhanced Skill Balance Module */}
           <Card className="bg-white border-2 border-pd-lightest">
              <div className="flex items-center justify-between mb-6">
                 <h2 className="font-impact text-2xl text-pd-darkblue tracking-wide uppercase flex items-center gap-2">
@@ -491,7 +491,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
                               <p className="text-xs font-bold text-pd-softgrey uppercase tracking-wider mt-1 mb-2">{ach.description}</p>
                               {isEarned ? (
                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-pd-teal bg-pd-teal/10 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                                    <CheckCircle size={10} /> Earned {ach.dateEarned ? `on ${new Date(ach.dateEarned).toLocaleDateString()}` : ''}
+                                    {/* Corrected: Use Lucide CheckCircle if desired, but using simple unicode check here for safety or ensuring imports */}
+                                    ✓ Earned {ach.dateEarned ? `on ${new Date(ach.dateEarned).toLocaleDateString()}` : ''}
                                  </span>
                               ) : (
                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-pd-slate bg-pd-lightest px-2 py-0.5 rounded-full uppercase tracking-wide">

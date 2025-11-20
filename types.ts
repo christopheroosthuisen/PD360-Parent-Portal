@@ -443,3 +443,17 @@ export interface CartItem extends Product {
   finalPrice: number;
   quantity: number;
 }
+
+// --- Learning Types ---
+export interface StudyResource {
+  title: string;
+  type: 'Article' | 'Video';
+  description: string;
+  estimatedTime: string;
+}
+
+export interface StudyModule {
+  title: string;
+  focus: string;
+  resources: StudyResource[];
+}
