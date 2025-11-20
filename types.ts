@@ -275,18 +275,50 @@ export interface DailyPlan {
   };
 }
 
-// Community Types
+// --- Social & Community Types (Updated) ---
+
+export interface Badge {
+  id: string;
+  name: string;
+  icon: React.ElementType | string; 
+  color: string; 
+  description?: string;
+}
+
+export interface Pack {
+  id: string;
+  name: string;
+  category: 'Breed' | 'Interest' | 'Location' | 'Training';
+  image: string;
+  membersCount: number;
+  location?: string;
+  isPrivate: boolean;
+  isMember: boolean;
+  description: string;
+  nextEvent?: string;
+}
+
+export interface Reaction {
+  type: 'high-five' | 'sniff' | 'howl';
+  count: number;
+  userReacted: boolean;
+}
+
 export interface CommunityPost {
   id: string;
   authorName: string;
   authorAvatar: string;
+  authorBadges?: Badge[];
   timeAgo: string;
   content: string;
   image?: string;
-  likes: number;
+  likes?: number; // Deprecated in favor of reactions
+  reactions?: Reaction[];
   comments: number;
   tags?: string[];
-  likedByMe?: boolean;
+  likedByMe?: boolean; // Deprecated in favor of reactions
+  packId?: string;
+  packName?: string;
 }
 
 export interface CommunityEvent {
@@ -299,6 +331,7 @@ export interface CommunityEvent {
   type: 'Class' | 'Social' | 'Workshop';
   price?: number;
   isRegistered?: boolean;
+  packId?: string;
 }
 
 export interface LeaderboardEntry {
@@ -307,6 +340,9 @@ export interface LeaderboardEntry {
   score: number;
   avatar: string;
   trend: 'up' | 'down' | 'stable';
+  badges?: Badge[];
+  breed?: string;
+  location?: string;
 }
 
 export interface MediaItem {

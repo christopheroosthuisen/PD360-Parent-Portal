@@ -1,18 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { DogData, Coach, CommunityPost } from '../types';
+import { DogData } from '../types';
 import { Community } from './Community';
 import { Coaching } from './Coaching';
 import { Booking } from './Booking';
-import { Users, CalendarCheck, Ticket } from 'lucide-react';
+import { Packs } from './Packs';
+import { Users, CalendarCheck, Ticket, Tent } from 'lucide-react';
 
 interface CommunityHubProps {
   dogData: DogData;
-  defaultTab?: 'feed' | 'coaching' | 'reservations';
+  defaultTab?: 'feed' | 'coaching' | 'reservations' | 'packs';
 }
 
 export const CommunityHub: React.FC<CommunityHubProps> = ({ dogData, defaultTab = 'feed' }) => {
-  const [activeTab, setActiveTab] = useState<'feed' | 'coaching' | 'reservations'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'feed' | 'coaching' | 'reservations' | 'packs'>(defaultTab);
 
   useEffect(() => {
      if (defaultTab) setActiveTab(defaultTab);
@@ -28,7 +29,7 @@ export const CommunityHub: React.FC<CommunityHubProps> = ({ dogData, defaultTab 
         </div>
         
         {/* Custom Tab Switcher */}
-        <div className="bg-white p-1.5 rounded-2xl border-2 border-pd-lightest flex shadow-sm overflow-x-auto max-w-full">
+        <div className="bg-white p-1.5 rounded-2xl border-2 border-pd-lightest flex shadow-sm overflow-x-auto max-w-full no-scrollbar">
             <button 
                onClick={() => setActiveTab('feed')}
                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-impact text-lg tracking-wide uppercase transition-all whitespace-nowrap ${
@@ -39,6 +40,17 @@ export const CommunityHub: React.FC<CommunityHubProps> = ({ dogData, defaultTab 
             >
                <Users size={20} className={activeTab === 'feed' ? 'text-pd-yellow' : ''} />
                Social Feed
+            </button>
+            <button 
+               onClick={() => setActiveTab('packs')}
+               className={`flex items-center gap-2 px-6 py-3 rounded-xl font-impact text-lg tracking-wide uppercase transition-all whitespace-nowrap ${
+                  activeTab === 'packs' 
+                  ? 'bg-pd-darkblue text-white shadow-md' 
+                  : 'text-pd-softgrey hover:text-pd-darkblue hover:bg-pd-lightest'
+               }`}
+            >
+               <Tent size={20} className={activeTab === 'packs' ? 'text-pd-yellow' : ''} />
+               The Pack
             </button>
             <button 
                onClick={() => setActiveTab('coaching')}
@@ -68,6 +80,7 @@ export const CommunityHub: React.FC<CommunityHubProps> = ({ dogData, defaultTab 
       {/* Content Area */}
       <div className="mt-8">
          {activeTab === 'feed' && <Community dogData={dogData} />}
+         {activeTab === 'packs' && <Packs />}
          {activeTab === 'coaching' && <Coaching />}
          {activeTab === 'reservations' && <Booking dogData={dogData} />}
       </div>

@@ -1,12 +1,10 @@
 
-import React, { useState } from 'react';
-import { DogData, CommunityPost, CommunityEvent } from '../types';
+import React, { useState, useMemo } from 'react';
+import { DogData, CommunityPost, CommunityEvent, LeaderboardEntry, Reaction, Badge } from '../types';
 import { MOCK_POSTS, MOCK_EVENTS, LEADERBOARD_DATA } from '../constants';
 import { Card, Button, Modal } from './UI';
 import { 
   MessageSquare, 
-  Heart, 
-  Share2, 
   Calendar, 
   MapPin, 
   Trophy, 
@@ -17,30 +15,74 @@ import {
   Send,
   CreditCard,
   CheckCircle,
-  Users,
   Ticket,
-  Clock
+  Clock,
+  Medal,
+  PawPrint,
+  Megaphone,
+  Users
 } from 'lucide-react';
 
 interface CommunityProps {
   dogData: DogData;
 }
 
+// --- Mock Enhanced Data (Local to component for now) ---
+
+const MOCK_BADGES: Record<string, Badge> = {
+    verified: { id: 'b1', name: 'Verified Owner', icon: '✓', color: 'text-blue-500', description: 'Identity Verified' },
+    top_contributor: { id: 'b2', name: 'Top Contributor', icon: '🌟', color: 'text-yellow-500', description: 'Highly Active' },
+    agility_champ: { id: 'b3', name: 'Agility Champ', icon: '🏃', color: 'text-emerald-500', description: 'Competition Winner' },
+    puppy_grad: { id: 'b4', name: 'Puppy Graduate', icon: '🎓', color: 'text-purple-500', description: 'Completed Puppy 101' }
+};
+
+// Transform existing posts to include new fields
+const ENHANCED_POSTS: CommunityPost[] = MOCK_POSTS.map(post => ({
+    ...post,
+    authorBadges: post.authorName === 'Mike T.' ? [MOCK_BADGES.verified, MOCK_BADGES.top_contributor] : 
+                  post.authorName.includes('Sarah') ? [MOCK_BADGES.puppy_grad] : [],
+    reactions: [
+        { type: 'high-five', count: Math.floor(Math.random() * 20), userReacted: post.likedByMe || false },
+        { type: 'sniff', count: Math.floor(Math.random() * 10), userReacted: false },
+        { type: 'howl', count: Math.floor(Math.random() * 5), userReacted: false }
+    ]
+}));
+
+// Transform Leaderboard
+const ENHANCED_LEADERBOARD: LeaderboardEntry[] = LEADERBOARD_DATA.map(entry => ({
+    ...entry,
+    badges: entry.rank === 1 ? [MOCK_BADGES.agility_champ] : [],
+    breed: entry.dogName === 'Barnaby' ? 'Golden Retriever' : entry.dogName === 'Luna' ? 'Border Collie' : 'Mixed Breed',
+    location: entry.dogName === 'Barnaby' ? 'Scottsdale' : 'Phoenix'
+}));
+
 export const Community: React.FC<CommunityProps> = ({ dogData }) => {
-  const [posts, setPosts] = useState<CommunityPost[]>(MOCK_POSTS);
+  const [posts, setPosts] = useState<CommunityPost[]>(ENHANCED_POSTS);
   const [newPostContent, setNewPostContent] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<CommunityEvent | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  
+  // Leaderboard State
+  const [leaderboardTab, setLeaderboardTab] = useState<'global' | 'breed' | 'local'>('global');
 
-  const handleLike = (id: string) => {
+  const handleReaction = (postId: string, reactionType: Reaction['type']) => {
     setPosts(prev => prev.map(post => {
-      if (post.id === id) {
-        return {
-          ...post,
-          likes: post.likedByMe ? post.likes - 1 : post.likes + 1,
-          likedByMe: !post.likedByMe
-        };
+      if (post.id === postId) {
+        const existingReaction = post.reactions?.find(r => r.type === reactionType);
+        let newReactions = post.reactions || [];
+        
+        if (existingReaction) {
+             // Toggle off if already reacted, or just increment? Let's toggle.
+             if (existingReaction.userReacted) {
+                 newReactions = newReactions.map(r => r.type === reactionType ? { ...r, count: r.count - 1, userReacted: false } : r);
+             } else {
+                 newReactions = newReactions.map(r => r.type === reactionType ? { ...r, count: r.count + 1, userReacted: true } : r);
+             }
+        } else {
+            newReactions = [...newReactions, { type: reactionType, count: 1, userReacted: true }];
+        }
+        return { ...post, reactions: newReactions };
       }
       return post;
     }));
@@ -53,9 +95,15 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
       id: Date.now().toString(),
       authorName: 'You & ' + dogData.name,
       authorAvatar: dogData.avatar,
+      authorBadges: [MOCK_BADGES.verified],
       timeAgo: 'Just now',
       content: newPostContent,
       likes: 0,
+      reactions: [
+          { type: 'high-five', count: 0, userReacted: false },
+          { type: 'sniff', count: 0, userReacted: false },
+          { type: 'howl', count: 0, userReacted: false }
+      ],
       comments: 0,
       likedByMe: false
     };
@@ -69,7 +117,6 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
     setTimeout(() => {
        setIsRegistering(false);
        setRegistrationSuccess(true);
-       // Ideally update event state here to show registered
     }, 1500);
   };
 
@@ -78,19 +125,30 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
      setRegistrationSuccess(false);
   };
 
+  const filteredLeaderboard = useMemo(() => {
+      let data = [...ENHANCED_LEADERBOARD];
+      if (leaderboardTab === 'breed') {
+          // Filter by current dog breed (mock logic)
+          data = data.filter(e => e.breed === dogData.breeds[0] || e.breed === 'Golden Retriever'); 
+      } else if (leaderboardTab === 'local') {
+          data = data.filter(e => e.location === 'Scottsdale');
+      }
+      return data.sort((a, b) => b.score - a.score);
+  }, [leaderboardTab, dogData.breeds]);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">PD360 COMMUNITY</h1>
-          <p className="text-pd-slate text-lg font-medium">Connect, compete, and celebrate with the pack.</p>
+          <h1 className="font-impact text-5xl text-pd-darkblue tracking-wide uppercase mb-2">PD360 SOCIAL</h1>
+          <p className="text-pd-slate text-lg font-medium">Share wins, earn medals, and compete.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column: Feed (2/3 width on large screens) */}
+        {/* Left Column: Feed (2/3 width) */}
         <div className="lg:col-span-2 space-y-6">
           
           {/* Create Post */}
@@ -101,7 +159,7 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
                 <textarea
                   value={newPostContent}
                   onChange={(e) => setNewPostContent(e.target.value)}
-                  placeholder={`Share a win, ask a question, or post an update about ${dogData.name}...`}
+                  placeholder={`What's new with ${dogData.name}?`}
                   className="w-full h-24 bg-pd-lightest/30 rounded-xl p-4 border border-pd-lightest focus:outline-none focus:border-pd-teal focus:bg-white transition-all resize-none text-pd-darkblue font-medium placeholder-pd-softgrey"
                 />
                 <div className="flex justify-between items-center mt-3">
@@ -124,10 +182,25 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
                   <div className="flex items-center gap-3">
                     <img src={post.authorAvatar} alt={post.authorName} className="w-12 h-12 rounded-xl object-cover border border-pd-lightest" />
                     <div>
-                      <h4 className="font-impact text-lg text-pd-darkblue tracking-wide leading-none">{post.authorName}</h4>
+                      <div className="flex items-center gap-2">
+                          <h4 className="font-impact text-lg text-pd-darkblue tracking-wide leading-none">{post.authorName}</h4>
+                          {post.authorBadges?.map((badge, i) => {
+                            const Icon = badge.icon;
+                            return (
+                              <span key={i} title={badge.name} className="text-sm cursor-help">
+                                {typeof Icon === 'string' ? Icon : <Icon size={14} />}
+                              </span>
+                            );
+                          })}
+                      </div>
                       <span className="text-xs text-pd-softgrey font-bold uppercase tracking-wide">{post.timeAgo}</span>
                     </div>
                   </div>
+                  {post.packName && (
+                      <span className="bg-pd-lightest text-pd-darkblue text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider flex items-center gap-1">
+                          <Users size={12} /> {post.packName}
+                      </span>
+                  )}
                 </div>
 
                 <p className="text-pd-slate leading-relaxed font-medium mb-4 whitespace-pre-wrap">{post.content}</p>
@@ -146,59 +219,110 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
                   </div>
                 )}
 
-                <div className="flex items-center gap-6 pt-4 border-t-2 border-pd-lightest">
-                  <button 
-                    onClick={() => handleLike(post.id)}
-                    className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wide transition-colors ${post.likedByMe ? 'text-rose-500' : 'text-pd-softgrey hover:text-rose-500'}`}
-                  >
-                    <Heart size={20} fill={post.likedByMe ? "currentColor" : "none"} />
-                    {post.likes} Likes
-                  </button>
-                  <button className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-pd-softgrey hover:text-pd-darkblue transition-colors">
-                    <MessageSquare size={20} />
-                    {post.comments} Comments
-                  </button>
-                  <button className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-pd-softgrey hover:text-pd-darkblue transition-colors ml-auto">
-                    <Share2 size={20} />
-                  </button>
+                {/* Rich Interaction Bar */}
+                <div className="flex items-center justify-between pt-4 border-t-2 border-pd-lightest">
+                   <div className="flex gap-4">
+                       {/* High Five (Like) */}
+                       <button 
+                          onClick={() => handleReaction(post.id, 'high-five')}
+                          className={`flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide transition-all px-3 py-1.5 rounded-xl ${post.reactions?.find(r => r.type === 'high-five')?.userReacted ? 'bg-pd-yellow text-pd-darkblue' : 'text-pd-softgrey hover:bg-pd-lightest'}`}
+                       >
+                          <PawPrint size={18} />
+                          {post.reactions?.find(r => r.type === 'high-five')?.count || 0}
+                       </button>
+                       
+                       {/* Sniff (Curious) */}
+                       <button 
+                          onClick={() => handleReaction(post.id, 'sniff')}
+                          className={`flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide transition-all px-3 py-1.5 rounded-xl ${post.reactions?.find(r => r.type === 'sniff')?.userReacted ? 'bg-blue-100 text-blue-700' : 'text-pd-softgrey hover:bg-pd-lightest'}`}
+                       >
+                          <span className="text-lg leading-none">👃</span>
+                          {post.reactions?.find(r => r.type === 'sniff')?.count || 0}
+                       </button>
+                       
+                       {/* Howl (Celebrate) */}
+                       <button 
+                          onClick={() => handleReaction(post.id, 'howl')}
+                          className={`flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide transition-all px-3 py-1.5 rounded-xl ${post.reactions?.find(r => r.type === 'howl')?.userReacted ? 'bg-purple-100 text-purple-700' : 'text-pd-softgrey hover:bg-pd-lightest'}`}
+                       >
+                          <Megaphone size={18} />
+                          {post.reactions?.find(r => r.type === 'howl')?.count || 0}
+                       </button>
+                   </div>
+                   
+                   <button className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-pd-softgrey hover:text-pd-darkblue transition-colors">
+                      <MessageSquare size={20} /> {post.comments}
+                   </button>
                 </div>
               </Card>
             ))}
           </div>
         </div>
 
-        {/* Right Column: Leaderboard & Events (1/3 width) */}
+        {/* Right Column: Leaderboard & Medal Case */}
         <div className="space-y-8">
           
-          {/* Leaderboard Widget */}
-          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-pd-teal rounded-full opacity-10 -mr-10 -mt-10 blur-2xl"></div>
+          {/* Advanced Leaderboard */}
+          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden !p-0">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-pd-teal rounded-full opacity-10 -mr-10 -mt-10 blur-2xl"></div>
             
-            <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm">
-                <Trophy size={24} className="text-pd-yellow" />
-              </div>
-              <h3 className="font-impact text-2xl tracking-wide uppercase">LEADERBOARD</h3>
+            <div className="p-6 pb-0 relative z-10">
+               <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm">
+                    <Trophy size={24} className="text-pd-yellow" />
+                </div>
+                <h3 className="font-impact text-2xl tracking-wide uppercase">LEADERBOARD</h3>
+               </div>
+               
+               {/* Leaderboard Tabs */}
+               <div className="flex p-1 bg-black/20 rounded-xl mb-4">
+                   {['global', 'breed', 'local'].map(tab => (
+                       <button 
+                          key={tab}
+                          onClick={() => setLeaderboardTab(tab as any)}
+                          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${leaderboardTab === tab ? 'bg-pd-teal text-pd-darkblue shadow-sm' : 'text-pd-lightest hover:text-white'}`}
+                       >
+                          {tab}
+                       </button>
+                   ))}
+               </div>
             </div>
 
-            <div className="space-y-4 relative z-10">
-              {LEADERBOARD_DATA.map((entry, index) => (
+            <div className="space-y-1 pb-6 relative z-10 max-h-[400px] overflow-y-auto custom-scrollbar">
+              {filteredLeaderboard.map((entry, index) => (
                 <div 
                   key={index} 
-                  className={`flex items-center gap-4 p-3 rounded-xl border transition-colors ${
+                  className={`flex items-center gap-4 p-3 mx-3 rounded-xl border transition-colors ${
                     entry.dogName === dogData.name 
                       ? 'bg-pd-teal/20 border-pd-teal' 
                       : 'bg-white/5 border-white/5 hover:bg-white/10'
                   }`}
                 >
-                  <div className={`w-8 h-8 flex items-center justify-center font-impact text-xl ${index < 3 ? 'text-pd-yellow' : 'text-pd-softgrey'}`}>
-                    #{entry.rank}
+                  <div className="w-8 flex justify-center shrink-0">
+                      {index === 0 ? <Medal size={24} className="text-yellow-400 fill-yellow-400/20" /> :
+                       index === 1 ? <Medal size={24} className="text-gray-300 fill-gray-300/20" /> :
+                       index === 2 ? <Medal size={24} className="text-amber-700 fill-amber-700/20" /> :
+                       <span className="font-impact text-lg text-pd-softgrey">#{index + 1}</span>
+                      }
                   </div>
-                  <img src={entry.avatar} alt={entry.dogName} className="w-10 h-10 rounded-lg object-cover bg-white/10" />
+                  
+                  <img src={entry.avatar} alt={entry.dogName} className="w-10 h-10 rounded-lg object-cover bg-white/10 border border-white/10" />
+                  
                   <div className="flex-1 min-w-0">
-                    <p className="font-impact text-lg tracking-wide truncate">{entry.dogName}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="font-impact text-lg tracking-wide truncate leading-none">{entry.dogName}</p>
+                        {entry.badges && entry.badges.length > 0 && (() => {
+                            const Icon = entry.badges[0].icon;
+                            return (
+                                <span className="text-xs">
+                                    {typeof Icon === 'string' ? Icon : <Icon size={12} />}
+                                </span>
+                            );
+                        })()}
+                    </div>
                     <p className="text-xs font-bold text-pd-lightest/70 uppercase">{entry.score} pts</p>
                   </div>
+                  
                   <div className="text-pd-lightest">
                     {entry.trend === 'up' && <TrendingUp size={16} className="text-pd-teal" />}
                     {entry.trend === 'down' && <TrendingDown size={16} className="text-rose-400" />}
@@ -207,9 +331,27 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
                 </div>
               ))}
             </div>
-            <button className="w-full mt-6 py-3 text-center font-impact text-pd-teal uppercase tracking-wide hover:text-white transition-colors text-sm">
+            <button className="w-full py-3 bg-white/5 hover:bg-white/10 text-center font-impact text-pd-teal uppercase tracking-wide transition-colors text-sm border-t border-white/5">
               View Full Rankings
             </button>
+          </Card>
+
+          {/* Medal Case Widget */}
+          <Card className="bg-white border-l-8 border-l-pd-yellow">
+             <div className="flex justify-between items-center mb-4">
+                <h3 className="font-impact text-xl text-pd-darkblue uppercase tracking-wide">Medal Case</h3>
+                <span className="text-xs font-bold text-pd-softgrey uppercase">Recent Unlocks</span>
+             </div>
+             <div className="flex gap-3 overflow-x-auto pb-2">
+                {dogData.achievements.filter(a => !a.isLocked).slice(0, 4).map(ach => (
+                   <div key={ach.id} className="flex flex-col items-center min-w-[80px] text-center group cursor-pointer">
+                      <div className="w-14 h-14 bg-pd-lightest/50 rounded-full flex items-center justify-center text-2xl mb-2 border-2 border-pd-lightest group-hover:border-pd-yellow transition-colors shadow-sm">
+                         {ach.icon}
+                      </div>
+                      <p className="text-[10px] font-bold text-pd-darkblue leading-tight line-clamp-2 uppercase">{ach.title}</p>
+                   </div>
+                ))}
+             </div>
           </Card>
 
           {/* Upcoming Events */}
@@ -253,7 +395,7 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
         </div>
       </div>
 
-      {/* Event Registration Modal */}
+      {/* Event Registration Modal (Reused from previous) */}
       <Modal isOpen={!!selectedEvent} onClose={closeEventModal} title={registrationSuccess ? "You're Going!" : "Registration"}>
          {selectedEvent && (
             registrationSuccess ? (
