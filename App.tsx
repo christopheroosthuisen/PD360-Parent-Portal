@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar, AppLoadingScreen } from './components/UI';
 import { Dashboard } from './components/Dashboard';
@@ -9,9 +7,11 @@ import { IzzyChat } from './components/IzzyChat';
 import { DogProfile } from './components/DogProfile';
 import { CommunityHub } from './components/CommunityHub';
 import { LearningCenter } from './components/LearningCenter';
+import { Shop } from './components/Shop';
 import { MOCK_DOGS, getCurrentGrade } from './constants';
 import { Menu } from 'lucide-react';
 import { DogData } from './types';
+import { CartProvider } from './CartContext';
 
 export default function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -71,67 +71,71 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-white font-sans text-pd-slate overflow-hidden">
-      <Sidebar 
-        activeView={activeView} 
-        setActiveView={handleViewChange} 
-        dogs={dogs}
-        selectedDogId={selectedDogId}
-        onSelectDog={setSelectedDogId}
-        gradeName={gradeInfo.current.name}
-        isMobileMenuOpen={isMobileMenuOpen}
-        setIsMobileMenuOpen={setIsMobileMenuOpen}
-      />
+    <CartProvider>
+      <div className="flex h-screen bg-white font-sans text-pd-slate overflow-hidden">
+        <Sidebar 
+          activeView={activeView} 
+          setActiveView={handleViewChange} 
+          dogs={dogs}
+          selectedDogId={selectedDogId}
+          onSelectDog={setSelectedDogId}
+          gradeName={gradeInfo.current.name}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+        />
 
-      <main className="flex-1 overflow-y-auto relative h-full bg-slate-50">
-        {/* Mobile Header */}
-        <div className="lg:hidden h-20 bg-white border-b-2 border-pd-lightest flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="text-pd-darkblue p-2 hover:bg-pd-lightest rounded-lg transition">
-              <Menu size={28} />
-            </button>
-            <span className="font-impact text-2xl text-pd-darkblue tracking-wide">PD360</span>
+        <main className="flex-1 overflow-y-auto relative h-full bg-slate-50">
+          {/* Mobile Header */}
+          <div className="lg:hidden h-20 bg-white border-b-2 border-pd-lightest flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsMobileMenuOpen(true)} className="text-pd-darkblue p-2 hover:bg-pd-lightest rounded-lg transition">
+                <Menu size={28} />
+              </button>
+              <span className="font-impact text-2xl text-pd-darkblue tracking-wide">PD360</span>
+            </div>
+            <div className="w-10 h-10 bg-pd-teal rounded-xl flex items-center justify-center text-white font-bold text-lg border-2 border-white shadow-md">
+              {selectedDog.name[0]}
+            </div>
           </div>
-          <div className="w-10 h-10 bg-pd-teal rounded-xl flex items-center justify-center text-white font-bold text-lg border-2 border-white shadow-md">
-            {selectedDog.name[0]}
+
+          <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-32">
+            {activeView === 'dashboard' && (
+              <Dashboard 
+                dogData={selectedDog} 
+                gradeInfo={gradeInfo} 
+                isSyncing={isSyncing} 
+                onSync={handleSync}
+                navigate={handleDashboardNav}
+              />
+            )}
+            
+            {activeView === 'training_hub' && (
+              <TrainingHub 
+                dogData={selectedDog} 
+                initialTab={activeHubTab as any} 
+              />
+            )}
+            
+            {activeView === 'learning' && <LearningCenter dogData={selectedDog} />}
+            
+            {activeView === 'shop' && <Shop />}
+
+            {activeView === 'profile' && (
+              <DogProfile dog={selectedDog} onUpdate={handleDogUpdate} />
+            )}
+
+            {(activeView === 'community') && (
+              <CommunityHub 
+                dogData={selectedDog} 
+                defaultTab={activeHubTab as any || 'feed'} 
+              />
+            )}
           </div>
-        </div>
-
-        <div className="p-6 lg:p-8 max-w-7xl mx-auto pb-32">
-          {activeView === 'dashboard' && (
-            <Dashboard 
-              dogData={selectedDog} 
-              gradeInfo={gradeInfo} 
-              isSyncing={isSyncing} 
-              onSync={handleSync}
-              navigate={handleDashboardNav}
-            />
-          )}
-          
-          {activeView === 'training_hub' && (
-            <TrainingHub 
-              dogData={selectedDog} 
-              initialTab={activeHubTab as any} 
-            />
-          )}
-          
-          {activeView === 'learning' && <LearningCenter dogData={selectedDog} />}
-
-          {activeView === 'profile' && (
-            <DogProfile dog={selectedDog} onUpdate={handleDogUpdate} />
-          )}
-
-          {(activeView === 'community') && (
-            <CommunityHub 
-              dogData={selectedDog} 
-              defaultTab={activeHubTab as any || 'feed'} 
-            />
-          )}
-        </div>
-      </main>
-      
-      {/* Persistent Chatbot with context of selected dog */}
-      <IzzyChat dogData={selectedDog} />
-    </div>
+        </main>
+        
+        {/* Persistent Chatbot with context of selected dog */}
+        <IzzyChat dogData={selectedDog} />
+      </div>
+    </CartProvider>
   );
 }

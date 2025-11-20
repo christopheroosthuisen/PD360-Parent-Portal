@@ -1,9 +1,8 @@
 
 
-
 import React, { useState, useEffect } from 'react';
 import { PHASES } from '../constants';
-import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader, Bell } from 'lucide-react';
+import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader, Bell, ShoppingBag } from 'lucide-react';
 import { DogData } from '../types';
 import { generateImage } from '../services/gemini';
 
@@ -251,18 +250,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'training_hub', icon: Target, label: 'Training Hub' },
     { id: 'learning', icon: BookOpen, label: 'Learning Center' },
     { id: 'community', icon: Users, label: 'Community' },
+    { id: 'shop', icon: ShoppingBag, label: 'Pro Shop' },
   ];
 
   const handleNav = (id: string) => {
     setActiveView(id);
-    setIsMobileMenuOpen(false);
-  };
-
-  const handleNotificationClick = () => {
-    setActiveView('profile');
-    // We rely on the parent to handle passing the tab state if needed, 
-    // but for now setting view to profile is sufficient.
-    // App.tsx handles the deep link logic via a separate state if needed.
     setIsMobileMenuOpen(false);
   };
 
@@ -354,22 +346,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>{item.label}</span>
               </button>
             ))}
-            
-            {/* Notification Button */}
-            <button
-               onClick={handleNotificationClick}
-               className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-200 group font-impact tracking-wide text-lg ${
-                  activeView === 'profile' 
-                    ? 'bg-pd-lightest/50 text-pd-darkblue' 
-                    : 'text-pd-softgrey hover:bg-pd-lightest hover:text-pd-darkblue'
-               }`}
-            >
-               <div className="relative">
-                  <Bell size={22} className="group-hover:text-pd-teal transition-colors" />
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
-               </div>
-               <span>Notifications</span>
-            </button>
           </nav>
         </div>
 

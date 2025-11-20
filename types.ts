@@ -362,3 +362,48 @@ export interface SubscriptionTier {
   features: string[];
   recommended?: boolean;
 }
+
+// --- Potty Scheduler Types ---
+export type PottyEventType = 'MEAL' | 'POTTY_WAKE' | 'POTTY_MEAL' | 'POTTY_MAINTENANCE' | 'POTTY_BED' | 'ACTIVITY';
+
+export interface PottyEvent {
+  id: string;
+  time: string; // HH:mm
+  type: PottyEventType;
+  label: string;
+  isInput: boolean; // true if meal/water (orange), false if elimination (teal)
+  completed: boolean;
+}
+
+export interface PottyScheduleConfig {
+  wakeTime: string;
+  bedTime: string;
+  mealTimes: string[];
+}
+
+// --- Shop Types ---
+export interface ProductVariant {
+  id: string;
+  name: string; // e.g., "Chrome - 2.25mm"
+  price: number;
+  inStock: boolean;
+}
+
+export interface Product {
+  id: string;
+  title: string;
+  categoryId: 'training' | 'collars' | 'toys' | 'health';
+  basePrice: number;
+  description: string;
+  brand: string; // e.g., "Herm Sprenger", "Partners Dogs"
+  hasVariants: boolean;
+  variants?: ProductVariant[];
+  image: string; // Placeholder URL
+}
+
+export interface CartItem extends Product {
+  variantId?: string;
+  variantName?: string;
+  finalPrice: number;
+  quantity: number;
+}

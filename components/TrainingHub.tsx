@@ -1,12 +1,11 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { DogData } from '../types';
 import { TrainingCalendar } from './TrainingCalendar';
 import { SkillsHub } from './SkillsHub';
 import { MediaAnalysis } from './MediaAnalysis';
 import { ActiveTraining } from './ActiveTraining';
+import { PottyScheduler } from './PottyScheduler';
 import { Calendar, ClipboardList, Video, PlayCircle } from 'lucide-react';
 
 interface TrainingHubProps {
@@ -93,10 +92,13 @@ export const TrainingHub: React.FC<TrainingHubProps> = ({ dogData, initialTab = 
       {/* Content Area */}
       <div className="mt-4">
          {activeTab === 'schedule' && (
-            <TrainingCalendar 
-               dogData={dogData} 
-               onStartSession={() => setActiveTab('session')} 
-            />
+            <div className="space-y-12">
+               <TrainingCalendar 
+                  dogData={dogData} 
+                  onStartSession={() => setActiveTab('session')} 
+               />
+               <PottyScheduler dogData={dogData} />
+            </div>
          )}
          {activeTab === 'skills' && <SkillsHub dogData={dogData} />}
          {activeTab === 'analysis' && <MediaAnalysis dogData={dogData} />}

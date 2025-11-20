@@ -3,6 +3,7 @@
 
 
 
+
 import { DogData, Grade, Note, Phases, RadarPoint, SkillCategory, CommunityPost, CommunityEvent, LeaderboardEntry, Achievement, Course, Coach, ServiceOption, AddOn, Facility, MediaItem, SubscriptionTier } from './types';
 
 export const PHASES: Phases = {
