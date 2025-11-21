@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, 
@@ -22,7 +21,10 @@ import {
   Check,
   PlayCircle,
   TrendingUp,
-  Hourglass
+  Hourglass,
+  Settings,
+  Minus,
+  RefreshCw
 } from 'lucide-react';
 import { Button, Card, Modal, ProgressBar } from './UI';
 import { DogData, CalendarEvent, TrainingTask, MasteryProjection, EventType, Skill } from '../types';
@@ -38,17 +40,26 @@ const formatDate = (year: number, month: number, day: number) => {
 };
 
 // --- Mastery Algorithm Constants ---
-const DAYS_PER_PHASE: Record<number, number> = {
-  1: 5,  // Unknown -> Teaching
-  2: 10, // Teaching -> Reinforcing
-  3: 20, // Reinforcing -> Proofing
-  4: 40  // Proofing -> Maintenance
+// Base cost in minutes to complete a phase (Reduced ~40% to target ~20 weeks for full mastery)
+const MINUTES_REQUIRED_PER_PHASE: Record<number, number> = {
+  1: 90,   // ~3 days @ 30m/day
+  2: 180,  // ~6 days @ 30m/day
+  3: 360,  // ~12 days @ 30m/day
+  4: 720   // ~24 days @ 30m/day
 };
 
-const MINUTES_PER_DAY = 30;
+interface RegimenConfig {
+  sessionsPerDay: number;
+  sessionDuration: number; // minutes
+  daysPerWeek: number;
+  behaviorsPerSession: number;
+}
 
 // --- Mastery Projection Calculation ---
-const calculateProjections = (dogData: DogData): { projections: MasteryProjection[], totalHoursRemaining: number, totalDaysRemaining: number } => {
+const calculateProjections = (
+  dogData: DogData, 
+  regimen: RegimenConfig
+): { projections: MasteryProjection[], totalHoursRemaining: number, totalDaysRemaining: number, totalYearsRemaining: number } => {
   const today = new Date();
   const projections: MasteryProjection[] = [];
   let totalMinutesRemaining = 0;
@@ -62,25 +73,28 @@ const calculateProjections = (dogData: DogData): { projections: MasteryProjectio
   activeSkills.forEach(skill => {
     let minutesForSkill = 0;
     
-    // Calculate remaining time based on current level up to Level 5
+    // Calculate remaining work in minutes based on current level up to Level 5
     for (let lvl = skill.level; lvl < 5; lvl++) {
-       const daysNeeded = DAYS_PER_PHASE[lvl] || 0;
-       minutesForSkill += daysNeeded * MINUTES_PER_DAY;
+       const minsNeeded = MINUTES_REQUIRED_PER_PHASE[lvl] || 0;
+       minutesForSkill += minsNeeded;
     }
 
     totalMinutesRemaining += minutesForSkill;
 
     // Calculate projected date for this specific skill
-    // Assumption: Training happens every day for this specific skill (optimistic forecast per skill)
-    // In reality, users rotate skills, so this date represents "If you focused purely on this"
-    // OR we can weight it by saying "If you train 30 mins/day total, this skill gets a slice"
-    // For the "Forecast" UI, we usually show the date assuming consistent work.
-    const daysToMastery = minutesForSkill / MINUTES_PER_DAY;
+    // Assumption: We are working on `behaviorsPerSession` skills concurrently.
+    // Daily minutes available per skill = (Total Daily Minutes) / (Behaviors in Rotation)
+    const totalDailyMinutes = regimen.sessionsPerDay * regimen.sessionDuration;
+    // Factor in days per week frequency
+    const effectiveDailyMinutes = totalDailyMinutes * (regimen.daysPerWeek / 7);
+    
+    // Split time among the concurrent behaviors
+    const minutesPerSkillPerDay = effectiveDailyMinutes / Math.max(1, regimen.behaviorsPerSession);
+    
+    const daysToMastery = minutesForSkill / Math.max(1, minutesPerSkillPerDay);
     const projectedDate = new Date(today);
     projectedDate.setDate(today.getDate() + daysToMastery);
     
-    // Only push top priority or close-to-finish skills to the individual list to avoid clutter
-    // or push all and let UI slice
     projections.push({
       skillName: skill.name,
       currentLevel: skill.level,
@@ -90,13 +104,21 @@ const calculateProjections = (dogData: DogData): { projections: MasteryProjectio
   });
   
   // Global Calculation
-  // If the user trains 30 mins/day TOTAL (across all skills), how long until the entire curriculum is done?
-  const totalDaysToCompleteEverything = totalMinutesRemaining / MINUTES_PER_DAY;
+  // Total Days = Total Work / Effective Daily Work
+  const totalDailyMinutes = regimen.sessionsPerDay * regimen.sessionDuration;
+  const effectiveDailyMinutes = totalDailyMinutes * (regimen.daysPerWeek / 7);
+  
+  const totalDaysToCompleteEverything = effectiveDailyMinutes > 0 
+    ? totalMinutesRemaining / effectiveDailyMinutes 
+    : 9999;
+
+  const totalYearsRemaining = totalDaysToCompleteEverything / 365;
 
   return {
     projections: projections.sort((a, b) => a.weeksRemaining - b.weeksRemaining), // Sort by nearest completion
     totalHoursRemaining: Math.round(totalMinutesRemaining / 60),
-    totalDaysRemaining: Math.round(totalDaysToCompleteEverything)
+    totalDaysRemaining: Math.round(totalDaysToCompleteEverything),
+    totalYearsRemaining: parseFloat(totalYearsRemaining.toFixed(1))
   };
 };
 
@@ -117,6 +139,15 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
   const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'training' | 'community' | 'vet'>('all');
   
+  // --- Regimen State ---
+  const [regimen, setRegimen] = useState<RegimenConfig>({
+    sessionsPerDay: 2,
+    sessionDuration: 15,
+    daysPerWeek: 7,
+    behaviorsPerSession: 3
+  });
+  const [isRegimenOpen, setIsRegimenOpen] = useState(false);
+
   // --- New Event Form State ---
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventType, setNewEventType] = useState<EventType>('training');
@@ -240,6 +271,19 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
       );
   };
 
+  // --- Regimen Controls ---
+  const updateRegimen = (field: keyof RegimenConfig, delta: number) => {
+    setRegimen(prev => {
+      const val = prev[field] + delta;
+      // Bounds checking
+      if (field === 'daysPerWeek' && (val < 1 || val > 7)) return prev;
+      if (field === 'sessionsPerDay' && val < 1) return prev;
+      if (field === 'sessionDuration' && val < 5) return prev;
+      if (field === 'behaviorsPerSession' && val < 1) return prev;
+      return { ...prev, [field]: val };
+    });
+  };
+
   // --- AI Generation ---
   const generateSchedule = async () => {
     setIsGenerating(true);
@@ -248,6 +292,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
     
     const prompt = `Generate a 7-day training schedule for ${dogData.name} (Grade: ${gradeInfo.current.name}).
     Start Date: today.
+    Regimen: ${regimen.sessionsPerDay} sessions/day, ${regimen.sessionDuration} min each.
     
     CRITICAL: You MUST select exercise names ONLY from this list: ${allSkillNames}. Do not invent new tasks.
     
@@ -271,8 +316,8 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
         const dateStr = formatDate(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
         
         const tasks: TrainingTask[] = [
-          ...(day.morningTasks || []).map((t: string, i: number) => ({ id: `m_${i}`, name: t, category: 'Morning', completed: false, duration: '15m' })),
-          ...(day.eveningTasks || []).map((t: string, i: number) => ({ id: `e_${i}`, name: t, category: 'Evening', completed: false, duration: '15m' }))
+          ...(day.morningTasks || []).map((t: string, i: number) => ({ id: `m_${i}`, name: t, category: 'Morning', completed: false, duration: `${Math.round(regimen.sessionDuration/2)}m` })),
+          ...(day.eveningTasks || []).map((t: string, i: number) => ({ id: `e_${i}`, name: t, category: 'Evening', completed: false, duration: `${Math.round(regimen.sessionDuration/2)}m` }))
         ];
 
         return {
@@ -326,7 +371,12 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
   };
 
   const selectedDayEvents = filteredEvents.filter(e => e.date === selectedDate);
-  const { projections, totalHoursRemaining, totalDaysRemaining } = useMemo(() => calculateProjections(dogData), [dogData]);
+  
+  // Recalculate projections when regimen or dogData changes
+  const { projections, totalHoursRemaining, totalDaysRemaining, totalYearsRemaining } = useMemo(
+    () => calculateProjections(dogData, regimen), 
+    [dogData, regimen]
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-24">
@@ -540,32 +590,118 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
              </div>
           </Card>
 
-          {/* Mastery Projections */}
-          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden">
+          {/* Mastery Projections Card */}
+          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden flex flex-col">
              <div className="absolute bottom-0 left-0 w-32 h-32 bg-pd-yellow rounded-full opacity-5 -ml-10 -mb-10 blur-3xl"></div>
-             <div className="flex items-center gap-3 mb-6 relative z-10">
-                <Target size={24} className="text-pd-yellow" />
-                <div>
-                    <h3 className="font-impact text-2xl tracking-wide uppercase leading-none">Mastery Forecast</h3>
-                    <p className="text-[10px] text-pd-teal uppercase font-bold tracking-wider">Based on 30m daily training</p>
+             
+             {/* Header with Regimen Toggle */}
+             <div className="flex justify-between items-start mb-6 relative z-10">
+                <div className="flex items-center gap-3">
+                    <Target size={24} className="text-pd-yellow" />
+                    <div>
+                        <h3 className="font-impact text-2xl tracking-wide uppercase leading-none">Mastery Forecast</h3>
+                        <p className="text-[10px] text-pd-teal uppercase font-bold tracking-wider">
+                            {regimen.sessionsPerDay * regimen.sessionDuration}m Daily • {regimen.daysPerWeek} Days/Wk
+                        </p>
+                    </div>
                 </div>
+                <button 
+                    onClick={() => setIsRegimenOpen(!isRegimenOpen)}
+                    className={`p-2 rounded-xl transition-all ${isRegimenOpen ? 'bg-pd-teal text-pd-darkblue' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    title="Adjust Regimen"
+                >
+                    <Settings size={18} />
+                </button>
              </div>
              
-             {/* Total Estimate */}
-             <div className="flex gap-4 mb-6 relative z-10 bg-white/10 p-3 rounded-xl border border-white/10">
-                 <div className="flex-1">
-                     <p className="text-[10px] font-bold uppercase tracking-wider text-pd-lightest mb-1">Total Hours Left</p>
-                     <div className="flex items-center gap-2">
-                         <Hourglass size={16} className="text-pd-teal" />
-                         <span className="font-impact text-2xl">{totalHoursRemaining}h</span>
+             {/* Regimen Controls Overlay */}
+             {isRegimenOpen && (
+                 <div className="relative z-20 bg-white/10 backdrop-blur-md rounded-xl p-4 mb-6 border border-white/10 animate-in slide-in-from-top-2">
+                     <div className="grid grid-cols-3 gap-3">
+                         {/* Sessions Per Day */}
+                         <div className="flex flex-col items-center gap-2 p-3 bg-black/20 rounded-xl border border-white/5">
+                             <label className="text-[9px] font-bold text-pd-lightest uppercase tracking-wider opacity-70 text-center leading-tight">Sessions / Day</label>
+                             <div className="flex items-center justify-between w-full gap-1">
+                                 <button 
+                                    onClick={() => updateRegimen('sessionsPerDay', -1)} 
+                                    className="w-8 h-8 flex shrink-0 items-center justify-center bg-white/10 rounded-lg hover:bg-pd-teal hover:text-pd-darkblue transition-colors active:scale-95"
+                                 >
+                                    <Minus size={14} strokeWidth={3} />
+                                 </button>
+                                 <span className="font-impact text-2xl text-white">{regimen.sessionsPerDay}</span>
+                                 <button 
+                                    onClick={() => updateRegimen('sessionsPerDay', 1)} 
+                                    className="w-8 h-8 flex shrink-0 items-center justify-center bg-white/10 rounded-lg hover:bg-pd-teal hover:text-pd-darkblue transition-colors active:scale-95"
+                                 >
+                                    <Plus size={14} strokeWidth={3} />
+                                 </button>
+                             </div>
+                         </div>
+
+                         {/* Session Duration */}
+                         <div className="flex flex-col items-center gap-2 p-3 bg-black/20 rounded-xl border border-white/5">
+                             <label className="text-[9px] font-bold text-pd-lightest uppercase tracking-wider opacity-70 text-center leading-tight">Mins / Session</label>
+                             <div className="flex items-center justify-between w-full gap-1">
+                                 <button 
+                                    onClick={() => updateRegimen('sessionDuration', -5)} 
+                                    className="w-8 h-8 flex shrink-0 items-center justify-center bg-white/10 rounded-lg hover:bg-pd-teal hover:text-pd-darkblue transition-colors active:scale-95"
+                                 >
+                                    <Minus size={14} strokeWidth={3} />
+                                 </button>
+                                 <span className="font-impact text-2xl text-white">{regimen.sessionDuration}</span>
+                                 <button 
+                                    onClick={() => updateRegimen('sessionDuration', 5)} 
+                                    className="w-8 h-8 flex shrink-0 items-center justify-center bg-white/10 rounded-lg hover:bg-pd-teal hover:text-pd-darkblue transition-colors active:scale-95"
+                                 >
+                                    <Plus size={14} strokeWidth={3} />
+                                 </button>
+                             </div>
+                         </div>
+
+                         {/* Days Per Week */}
+                         <div className="flex flex-col items-center gap-2 p-3 bg-black/20 rounded-xl border border-white/5">
+                             <label className="text-[9px] font-bold text-pd-lightest uppercase tracking-wider opacity-70 text-center leading-tight">Days / Week</label>
+                             <div className="flex items-center justify-between w-full gap-1">
+                                 <button 
+                                    onClick={() => updateRegimen('daysPerWeek', -1)} 
+                                    className="w-8 h-8 flex shrink-0 items-center justify-center bg-white/10 rounded-lg hover:bg-pd-teal hover:text-pd-darkblue transition-colors active:scale-95"
+                                 >
+                                    <Minus size={14} strokeWidth={3} />
+                                 </button>
+                                 <span className="font-impact text-2xl text-white">{regimen.daysPerWeek}</span>
+                                 <button 
+                                    onClick={() => updateRegimen('daysPerWeek', 1)} 
+                                    className="w-8 h-8 flex shrink-0 items-center justify-center bg-white/10 rounded-lg hover:bg-pd-teal hover:text-pd-darkblue transition-colors active:scale-95"
+                                 >
+                                    <Plus size={14} strokeWidth={3} />
+                                 </button>
+                             </div>
+                         </div>
                      </div>
                  </div>
-                 <div className="w-px bg-white/10"></div>
-                 <div className="flex-1">
-                     <p className="text-[10px] font-bold uppercase tracking-wider text-pd-lightest mb-1">Days to Complete</p>
-                     <div className="flex items-center gap-2">
-                         <CalendarIcon size={16} className="text-pd-yellow" />
-                         <span className="font-impact text-2xl">{totalDaysRemaining}d</span>
+             )}
+             
+             {/* Total Estimate */}
+             <div className="grid grid-cols-3 gap-2 mb-6 relative z-10 bg-white/10 p-3 rounded-xl border border-white/10">
+                 <div className="text-center border-r border-white/10 pr-2">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-pd-lightest mb-1 opacity-70">Work Volume</p>
+                     <div className="flex items-center justify-center gap-1">
+                         <Hourglass size={14} className="text-pd-teal" />
+                         <span className="font-impact text-xl tracking-wide">{totalHoursRemaining}h</span>
+                     </div>
+                 </div>
+                 <div className="text-center border-r border-white/10 px-2">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-pd-lightest mb-1 opacity-70">Timeline</p>
+                     <div className="flex items-center justify-center gap-1">
+                         <CalendarIcon size={14} className="text-pd-yellow" />
+                         <span className="font-impact text-xl tracking-wide">{totalDaysRemaining}d</span>
+                     </div>
+                 </div>
+                 <div className="text-center pl-2">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-pd-lightest mb-1 opacity-70">Mastery</p>
+                     <div className="flex items-center justify-center gap-1">
+                         <TrendingUp size={14} className="text-emerald-400" />
+                         <span className="font-impact text-xl tracking-wide">{totalYearsRemaining}y</span>
                      </div>
                  </div>
              </div>
