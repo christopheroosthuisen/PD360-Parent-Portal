@@ -24,7 +24,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 // --- AI Assistant Component ---
 export const AIAssistant: React.FC<{ dogData: DogData }> = ({ dogData }) => {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: `Hi! I'm the PD360 Assistant. I can explain ${dogData.name}'s current phases or answer questions about dog training.` }
+    { role: 'ai', text: `Hi! I'm the Partners Assistant. I can explain ${dogData.name}'s current phases or answer questions about dog training.` }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -63,8 +63,8 @@ export const AIAssistant: React.FC<{ dogData: DogData }> = ({ dogData }) => {
       Recent Notes: ${JSON.stringify(TRAINER_NOTES)}
     `;
     
-    const systemPrompt = `You are the AI assistant for Partners Dogs 360. 
-    Strictly adhere to the PD360 definitions found in the context.
+    const systemPrompt = `You are the AI assistant for Partners Dogs. 
+    Strictly adhere to the Partners definitions found in the context.
     Reference the specific School Grade (${gradeInfo.current.name}) when talking about progress.
     
     Context: ${context}`;
@@ -82,7 +82,7 @@ export const AIAssistant: React.FC<{ dogData: DogData }> = ({ dogData }) => {
           <Sparkles size={24} />
         </div>
         <div>
-          <h3 className="font-impact text-2xl tracking-wide leading-none">PD360 AI EXPERT</h3>
+          <h3 className="font-impact text-2xl tracking-wide leading-none">PARTNERS AI EXPERT</h3>
           <p className="text-xs text-pd-teal font-bold uppercase tracking-wider mt-1">Powered by Gemini 3 Pro</p>
         </div>
       </div>
@@ -328,7 +328,7 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     
     Strictly return ONLY the JSON array.`;
 
-    const systemPrompt = "You are a PD360 Certified Trainer. You create concise, actionable, and balanced training schedules using the official PD360 skill curriculum.";
+    const systemPrompt = "You are a Partners Certified Trainer. You create concise, actionable, and balanced training schedules using the official skill curriculum.";
 
     try {
       const responseText = await generateContent(prompt, "gemini-3-pro-preview", systemPrompt);
@@ -363,7 +363,7 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     Strictly return ONLY the JSON object for this day.`;
 
     try {
-       const responseText = await generateContent(prompt, "gemini-3-pro-preview", "You are a PD360 Trainer. Only use skills from the provided list.");
+       const responseText = await generateContent(prompt, "gemini-3-pro-preview", "You are a Partners Trainer. Only use skills from the provided list.");
        const cleanJson = responseText.replace(/```json\n?|\n?```/g, '').trim();
        const newDay = JSON.parse(cleanJson);
        

@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo } from 'react';
 import { DogData, ServiceOption, AddOn } from '../types';
 import { BOOKING_SERVICES, BOOKING_ADDONS, MOCK_FACILITIES } from '../constants';
@@ -51,7 +48,8 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
     let addonsTotal = 0;
     const addonItems: { name: string; qty: number; price: number; total: number }[] = [];
 
-    Object.entries(selectedAddons).forEach(([id, qty]) => {
+    Object.entries(selectedAddons).forEach(([id, qtyValue]) => {
+      const qty = qtyValue as number;
       if (qty > 0) {
         const addon = BOOKING_ADDONS.find(a => a.id === id);
         if (addon) {

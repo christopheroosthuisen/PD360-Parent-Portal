@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, ProgressBar } from './UI';
 import { SKILL_TREE } from '../constants';
@@ -243,7 +242,8 @@ export const ActiveTraining: React.FC<ActiveTrainingProps> = ({ dogId, initialSk
                     <p className="text-pd-slate text-lg font-medium mb-8">Session Duration: <span className="font-bold text-pd-darkblue">{formatTime(sessionTime)}</span></p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                        {Object.entries(activeStats).map(([name, stats]) => {
+                        {Object.entries(activeStats).map(([name, s]) => {
+                            const stats = s as { success: number; fail: number };
                             const total = stats.success + stats.fail;
                             const rate = total > 0 ? Math.round((stats.success / total) * 100) : 0;
                             return (

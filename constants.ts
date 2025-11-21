@@ -4,6 +4,7 @@
 
 
 
+
 import { DogData, Grade, Note, Phases, RadarPoint, SkillCategory, CommunityPost, CommunityEvent, LeaderboardEntry, Achievement, Course, Coach, ServiceOption, AddOn, Facility, MediaItem, SubscriptionTier } from './types';
 
 export const PHASES: Phases = {
@@ -285,6 +286,8 @@ export const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
 export const MOCK_DOGS: DogData[] = [
   {
     id: "d1",
+    crmId: "HS_8823912",
+    accountId: "ACC_1001",
     name: "Barnaby",
     breeds: ["Golden Retriever"],
     birthDate: "2022-05-15",
@@ -295,6 +298,7 @@ export const MOCK_DOGS: DogData[] = [
     avatar: "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?auto=format&fit=crop&q=80&w=200&h=200",
     
     owner: {
+      id: "CONTACT_992",
       firstName: "Jane",
       lastName: "Doe",
       email: "jane.doe@example.com",
@@ -314,6 +318,15 @@ export const MOCK_DOGS: DogData[] = [
       sms: false,
       marketing: false
     },
+
+    // Personalization Links
+    assignedTrainer: {
+        id: "c3",
+        name: "Marcus Chen",
+        role: "Senior Trainer",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"
+    },
+    homeFacilityId: "cc",
 
     currentScore: 285,
     streak: 12,
@@ -352,6 +365,8 @@ export const MOCK_DOGS: DogData[] = [
   },
   {
     id: "d2",
+    crmId: "HS_8823913",
+    accountId: "ACC_1001",
     name: "Luna",
     breeds: ["Border Collie", "Australian Shepherd"],
     birthDate: "2023-01-10",
@@ -362,6 +377,7 @@ export const MOCK_DOGS: DogData[] = [
     avatar: "https://images.unsplash.com/photo-1517423568366-8b83523034fd?auto=format&fit=crop&q=80&w=200&h=200",
     
     owner: {
+      id: "CONTACT_992",
       firstName: "Jane",
       lastName: "Doe",
       email: "jane.doe@example.com",
@@ -380,6 +396,15 @@ export const MOCK_DOGS: DogData[] = [
       sms: true,
       marketing: false
     },
+
+    // Personalization Links
+    assignedTrainer: {
+        id: "c4",
+        name: "Emily Dao",
+        role: "Behavior Specialist",
+        avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80"
+    },
+    homeFacilityId: "sc",
 
     currentScore: 150,
     streak: 3,

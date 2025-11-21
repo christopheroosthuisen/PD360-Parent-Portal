@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { PHASES } from '../constants';
-import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader, Bell, Store, LifeBuoy, LogOut } from 'lucide-react';
+import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader, Bell, Store, LifeBuoy, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { DogData } from '../types';
 import { generateImage } from '../services/gemini';
+import { Logo } from './Logo';
 
 export const Card: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = "", onClick }) => (
   <div onClick={onClick} className={`bg-pd-lightest rounded-3xl p-6 md:p-8 ${className}`}>
@@ -185,20 +185,13 @@ export const SkillVisual: React.FC<{ skillName: string; dogData: DogData; classN
 
 export const AppLoadingScreen: React.FC = () => (
   <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-4">
-    <div className="relative w-32 h-32 mb-8">
-       <div className="absolute inset-0 bg-pd-teal/10 rounded-full animate-ping duration-1000"></div>
-       <div className="absolute inset-4 bg-pd-yellow/20 rounded-full animate-ping delay-300 duration-1000"></div>
-       <div className="relative w-full h-full bg-white border-4 border-pd-lightest rounded-full flex items-center justify-center shadow-xl z-10 overflow-hidden">
-          <img src="logo_4.png" alt="Logo" className="w-full h-full object-cover animate-bounce" />
-       </div>
+    <div className="animate-in zoom-in duration-500">
+       <Logo variant="stacked" />
     </div>
-    <h1 className="font-impact text-4xl md:text-5xl text-pd-darkblue tracking-wide mb-2 uppercase text-center">
-      PARTNERS DOGS <span className="text-pd-teal">360</span>
-    </h1>
-    <div className="w-48 md:w-64 h-1.5 bg-pd-lightest rounded-full overflow-hidden mt-4">
+    <div className="w-48 md:w-64 h-1.5 bg-pd-lightest rounded-full overflow-hidden mt-8">
        <div className="h-full bg-pd-darkblue animate-[loading_1.5s_ease-in-out_infinite] w-1/2 rounded-full origin-left"></div>
     </div>
-    <p className="text-pd-softgrey font-bold text-xs md:text-sm mt-4 uppercase tracking-widest animate-pulse">Fetching Profile...</p>
+    <p className="text-pd-softgrey font-bold text-xs md:text-sm mt-4 uppercase tracking-widest animate-pulse">Initializing...</p>
   </div>
 );
 
@@ -243,6 +236,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout
 }) => {
   const [isDogMenuOpen, setIsDogMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const selectedDog = dogs.find(d => d.id === selectedDogId) || dogs[0];
 
   const menuItems = [
@@ -267,42 +261,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      <aside className={`fixed lg:relative inset-y-0 left-0 w-72 bg-white border-r-2 border-pd-lightest flex flex-col justify-between z-50 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl lg:shadow-none`}>
+      <aside 
+        className={`fixed lg:relative inset-y-0 left-0 z-50 h-full bg-white border-r-2 border-pd-lightest transition-all duration-300 flex flex-col
+          ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'} 
+          ${isCollapsed ? 'lg:w-24 lg:px-2' : 'lg:w-72'} 
+          shadow-2xl lg:shadow-none
+        `}
+      >
+        {/* Desktop Collapse Toggle */}
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="hidden lg:flex absolute -right-3 top-12 bg-white border-2 border-pd-lightest rounded-full p-1.5 text-pd-darkblue hover:text-pd-teal shadow-sm z-50"
+        >
+          {isCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+        </button>
+
         <div className="flex flex-col h-full">
-          <div className="p-8 flex flex-col gap-2 shrink-0">
-            <div className="flex items-center gap-3">
-               {/* Logo Icon */}
-               <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-[4px_4px_0px_0px_#34C6B9] hover:translate-y-[-2px] transition-transform cursor-default overflow-hidden bg-pd-darkblue">
-                  <img src="logo_1.png" alt="PD Logo" className="w-full h-full object-cover" />
-               </div>
-               <div className="flex flex-col select-none">
-                 <span className="font-impact text-3xl text-pd-darkblue tracking-wide leading-none">PARTNERS</span>
-                 <span className="font-impact text-3xl text-pd-darkblue tracking-wide leading-none">DOGS</span>
-               </div>
-            </div>
-            <div className="pl-[3.75rem]">
-               <span className="font-impact text-2xl text-pd-teal tracking-widest leading-none select-none">360</span>
-            </div>
+          {/* Logo Section */}
+          <div className={`p-6 flex items-center ${isCollapsed ? 'justify-center p-4' : 'p-8 gap-3'} shrink-0 transition-all`}>
+             <Logo collapsed={isCollapsed} />
           </div>
 
           {/* Dog Switcher */}
-          <div className="px-6 relative shrink-0">
+          <div className={`relative shrink-0 transition-all ${isCollapsed ? 'px-2' : 'px-6'}`}>
              <button 
                 onClick={() => setIsDogMenuOpen(!isDogMenuOpen)}
-                className="w-full bg-white hover:bg-pd-lightest border-2 border-pd-lightest rounded-2xl p-3 flex items-center justify-between transition-all shadow-sm hover:shadow-md group"
+                className={`w-full bg-white hover:bg-pd-lightest border-2 border-pd-lightest rounded-2xl p-2 flex items-center transition-all shadow-sm hover:shadow-md group ${isCollapsed ? 'justify-center aspect-square' : 'justify-between p-3'}`}
              >
-               <div className="flex items-center gap-3">
+               <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} w-full`}>
                   <img src={selectedDog.avatar} alt={selectedDog.name} className="w-10 h-10 rounded-xl object-cover border border-pd-softgrey/30 group-hover:border-pd-teal transition-colors" />
-                  <div className="text-left overflow-hidden">
-                     <p className="font-impact text-lg text-pd-darkblue leading-none tracking-wide truncate">{selectedDog.name}</p>
-                     <p className="text-xs text-pd-softgrey font-bold uppercase tracking-wider truncate group-hover:text-pd-teal transition-colors">{selectedDog.breeds[0]}</p>
-                  </div>
+                  {!isCollapsed && (
+                    <div className="text-left overflow-hidden">
+                       <p className="font-impact text-lg text-pd-darkblue leading-none tracking-wide truncate">{selectedDog.name}</p>
+                       <p className="text-xs text-pd-softgrey font-bold uppercase tracking-wider truncate group-hover:text-pd-teal transition-colors">{selectedDog.breeds[0]}</p>
+                    </div>
+                  )}
                </div>
-               <ChevronDown size={18} className={`text-pd-slate transition-transform ${isDogMenuOpen ? 'rotate-180' : ''}`} />
+               {!isCollapsed && <ChevronDown size={18} className={`text-pd-slate transition-transform ${isDogMenuOpen ? 'rotate-180' : ''}`} />}
              </button>
 
              {isDogMenuOpen && (
-                <div className="absolute top-full left-6 right-6 mt-2 bg-white border-2 border-pd-lightest rounded-2xl shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 origin-top">
+                <div className={`absolute top-full mt-2 bg-white border-2 border-pd-lightest rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 origin-top ${isCollapsed ? 'left-16 w-64' : 'left-6 right-6'}`}>
                    <div className="max-h-48 overflow-y-auto custom-scrollbar">
                      {dogs.map(dog => (
                         <button
@@ -332,49 +331,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
              )}
           </div>
 
-          <nav className="mt-6 px-6 space-y-3 flex-1 overflow-y-auto custom-scrollbar">
+          {/* Nav Items */}
+          <nav className={`mt-6 space-y-3 flex-1 overflow-y-auto custom-scrollbar ${isCollapsed ? 'px-2' : 'px-6'}`}>
             {menuItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleNav(item.id)}
-                className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-200 group font-impact tracking-wide text-lg ${
+                className={`w-full flex items-center rounded-2xl transition-all duration-200 group font-impact tracking-wide text-lg ${
                   activeView === item.id 
                     ? 'bg-pd-darkblue text-white shadow-[0_4px_0_0_#34C6B9] translate-y-[-2px]' 
                     : 'text-pd-softgrey hover:bg-pd-lightest hover:text-pd-darkblue'
-                }`}
+                } ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-4'}`}
+                title={isCollapsed ? item.label : undefined}
               >
                 <item.icon size={22} className={`transition-colors ${activeView === item.id ? "text-pd-yellow" : "group-hover:text-pd-teal text-pd-softgrey"}`} />
-                <span>{item.label}</span>
+                {!isCollapsed && <span>{item.label}</span>}
               </button>
             ))}
             
             {/* Support Link */}
             <button
                onClick={() => handleNav('support')}
-               className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-200 group font-impact tracking-wide text-lg ${
+               className={`w-full flex items-center rounded-2xl transition-all duration-200 group font-impact tracking-wide text-lg ${
                   activeView === 'support' 
                     ? 'bg-pd-darkblue text-white shadow-[0_4px_0_0_#34C6B9] translate-y-[-2px]' 
                     : 'text-pd-softgrey hover:bg-pd-lightest hover:text-pd-darkblue'
-               }`}
+               } ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-4'}`}
+               title={isCollapsed ? 'Support' : undefined}
             >
                <LifeBuoy size={22} className={`transition-colors ${activeView === 'support' ? "text-pd-yellow" : "group-hover:text-pd-teal text-pd-softgrey"}`} />
-               <span>Support</span>
+               {!isCollapsed && <span>Support</span>}
             </button>
           </nav>
 
-          <div className="p-6 border-t-2 border-pd-lightest bg-pd-lightest/30 shrink-0 space-y-4">
-            <div className="flex items-center justify-center">
-               <p className="text-xs text-pd-softgrey font-bold uppercase tracking-widest">
-                  Current Grade: <span className="text-pd-darkblue font-black">{gradeName}</span>
-               </p>
-            </div>
-            {onLogout && (
-               <button 
-                  onClick={onLogout}
-                  className="w-full flex items-center justify-center gap-2 text-xs font-bold text-rose-500 uppercase hover:bg-rose-50 py-2 rounded-lg transition-colors"
-               >
-                  <LogOut size={14} /> Log Out
-               </button>
+          {/* Footer */}
+          <div className={`border-t-2 border-pd-lightest bg-pd-lightest/30 shrink-0 ${isCollapsed ? 'p-4' : 'p-6 space-y-4'}`}>
+            {!isCollapsed ? (
+               <>
+                  <div className="flex items-center justify-center">
+                     <p className="text-xs text-pd-softgrey font-bold uppercase tracking-widest">
+                        Grade: <span className="text-pd-darkblue font-black">{gradeName}</span>
+                     </p>
+                  </div>
+                  {onLogout && (
+                     <button 
+                        onClick={onLogout}
+                        className="w-full flex items-center justify-center gap-2 text-xs font-bold text-rose-500 uppercase hover:bg-rose-50 py-2 rounded-lg transition-colors"
+                     >
+                        <LogOut size={14} /> Log Out
+                     </button>
+                  )}
+               </>
+            ) : (
+               <div className="flex flex-col items-center gap-4">
+                  <div title={`Grade: ${gradeName}`} className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-xs font-bold border border-pd-lightest text-pd-darkblue shadow-sm cursor-help">
+                     {gradeName[0]}
+                  </div>
+                  {onLogout && (
+                     <button onClick={onLogout} title="Log Out" className="text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition-colors">
+                        <LogOut size={20} />
+                     </button>
+                  )}
+               </div>
             )}
           </div>
         </div>

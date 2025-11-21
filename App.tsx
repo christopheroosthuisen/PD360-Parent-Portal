@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar, AppLoadingScreen } from './components/UI';
 import { Dashboard } from './components/Dashboard';
@@ -14,6 +13,8 @@ import { MOCK_DOGS, getCurrentGrade } from './constants';
 import { Menu } from 'lucide-react';
 import { DogData } from './types';
 import { CartProvider } from './CartContext';
+import { logSyncData } from './crmSystem';
+import { Logo } from './components/Logo';
 
 export default function App() {
   // 'login', 'signup', 'forgot-password' or main app views
@@ -37,6 +38,10 @@ export default function App() {
 
   const handleSync = () => {
     setIsSyncing(true);
+    
+    // Log the Sync Event to the Console using the CRM System
+    logSyncData(selectedDog);
+
     setTimeout(() => {
       setIsSyncing(false);
       const updatedDogs = dogs.map(d => {
@@ -107,12 +112,7 @@ export default function App() {
               <button onClick={() => setIsMobileMenuOpen(true)} className="text-pd-darkblue p-2 hover:bg-pd-lightest rounded-lg transition">
                 <Menu size={28} />
               </button>
-              <div className="flex items-center gap-2">
-                 <div className="w-8 h-8 rounded-lg bg-pd-darkblue overflow-hidden">
-                   <img src="logo_2.png" alt="Logo" className="w-full h-full object-cover" />
-                 </div>
-                 <span className="font-impact text-2xl text-pd-darkblue tracking-wide">PD360</span>
-              </div>
+              <Logo variant="mobile" />
             </div>
             <div className="w-10 h-10 bg-pd-teal rounded-xl flex items-center justify-center text-white font-bold text-lg border-2 border-white shadow-md">
               {selectedDog.name[0]}

@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SKILL_TREE, PHASES, BEHAVIOR_TIPS } from '../constants';
 import { PD360PhaseBar, Card, getLevelColor, Button, CategoryCard, SkillVisual } from './UI';
@@ -558,7 +555,9 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
             </div>
           ) : (
             <div className="space-y-12 pb-24">
-              {Object.entries(groupedData).map(([category, skills]) => (
+              {Object.keys(groupedData).map((category) => {
+                const skills = groupedData[category];
+                return (
                 <div key={category} className="animate-in slide-in-from-bottom-4 duration-500">
                   <div className="flex items-center gap-4 mb-8">
                     <div className="h-0.5 flex-1 bg-pd-lightest"></div>
@@ -707,7 +706,7 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
                     ))}
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </>

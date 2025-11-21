@@ -1,4 +1,6 @@
 
+import React from 'react';
+
 export interface Grade {
   name: string;
   minScore: number;
@@ -127,6 +129,7 @@ export interface Reservation {
 }
 
 export interface OwnerProfile {
+  id: string; // CRM Contact ID
   firstName: string;
   lastName: string;
   email: string;
@@ -149,8 +152,18 @@ export interface NotificationSettings {
   marketing: boolean;
 }
 
-export interface DogData {
+export interface AssignedTrainer {
   id: string;
+  name: string;
+  role: string; // e.g. "Senior Trainer"
+  avatar: string;
+}
+
+export interface DogData {
+  id: string; // Internal App ID
+  crmId: string; // HubSpot/CRM Object ID
+  accountId: string; // Family/Household Account ID
+  
   name: string;
   breeds: string[];
   birthDate: string; // YYYY-MM-DD
@@ -164,6 +177,10 @@ export interface DogData {
   owner: OwnerProfile;
   emergencyContact: EmergencyContact;
   notificationSettings: NotificationSettings;
+
+  // Relationship & Location
+  assignedTrainer?: AssignedTrainer;
+  homeFacilityId?: string;
 
   // Progress
   currentScore: number;

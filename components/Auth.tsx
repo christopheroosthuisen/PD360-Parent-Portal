@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { Button, Card } from './UI';
 import { Mail, Lock, User, ArrowRight, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Logo } from './Logo';
 
 interface AuthProps {
   view: 'login' | 'signup' | 'forgot-password';
@@ -50,11 +50,8 @@ export const Auth: React.FC<AuthProps> = ({ view, onNavigate, onLogin }) => {
       <div className="relative z-10 w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(52,198,185,0.3)]">
-                <img src="logo_2.png" alt="PD360" className="w-16 h-16 object-contain" />
-            </div>
-            <h1 className="font-impact text-4xl text-white tracking-wide">PARTNERS DOGS <span className="text-pd-teal">360</span></h1>
-            <p className="text-pd-lightest/80 font-medium mt-2">Your complete training companion.</p>
+            <Logo variant="stacked" className="mx-auto" />
+            <p className="text-pd-lightest/80 font-medium mt-4">Your complete training companion.</p>
         </div>
 
         <Card className="bg-white shadow-2xl border-4 border-pd-lightest/10">

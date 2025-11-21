@@ -32,7 +32,7 @@ export const ScoreBreakdown: React.FC = () => {
         <div className="bg-pd-darkblue text-white px-6 py-3 rounded-2xl shadow-lg flex items-center gap-4 border-l-4 border-pd-teal">
           <Calculator size={28} className="text-pd-teal" />
           <div>
-            <p className="text-xs font-bold text-pd-teal uppercase tracking-wider">PD360 Total Score</p>
+            <p className="text-xs font-bold text-pd-teal uppercase tracking-wider">Partners Life Score</p>
             <p className="font-impact text-3xl leading-none">{totalScore}</p>
           </div>
         </div>

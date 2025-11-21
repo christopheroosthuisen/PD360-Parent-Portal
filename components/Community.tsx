@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo } from 'react';
 import { DogData, CommunityPost, CommunityEvent, LeaderboardEntry, Reaction, Badge } from '../types';
 import { MOCK_POSTS, MOCK_EVENTS, LEADERBOARD_DATA } from '../constants';
@@ -163,7 +160,7 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
   const uniquePacks = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.pack || 'None'))), []);
   const uniqueBreeds = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.breed || 'Mixed'))), []);
 
-  const LeaderboardRow = ({ entry, index, expanded = false }: { entry: typeof ENHANCED_LEADERBOARD[0], index: number, expanded?: boolean }) => (
+  const LeaderboardRow: React.FC<{ entry: typeof ENHANCED_LEADERBOARD[0], index: number, expanded?: boolean }> = ({ entry, index, expanded = false }) => (
     <div 
       className={`flex items-center gap-4 p-3 rounded-xl border transition-colors ${
         entry.dogName === dogData.name 
