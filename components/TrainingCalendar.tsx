@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, 
@@ -16,13 +14,15 @@ import {
   Search, 
   Users, 
   Stethoscope, 
-  Dumbbell,
+  Dumbbell, 
   Target,
   Clock,
   Trash2,
   X,
   Check,
-  PlayCircle
+  PlayCircle,
+  TrendingUp,
+  Hourglass
 } from 'lucide-react';
 import { Button, Card, Modal, ProgressBar } from './UI';
 import { DogData, CalendarEvent, TrainingTask, MasteryProjection, EventType, Skill } from '../types';
@@ -37,32 +37,67 @@ const formatDate = (year: number, month: number, day: number) => {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
-// --- Mastery Projection Helper ---
-const calculateProjections = (dogData: DogData): MasteryProjection[] => {
+// --- Mastery Algorithm Constants ---
+const DAYS_PER_PHASE: Record<number, number> = {
+  1: 5,  // Unknown -> Teaching
+  2: 10, // Teaching -> Reinforcing
+  3: 20, // Reinforcing -> Proofing
+  4: 40  // Proofing -> Maintenance
+};
+
+const MINUTES_PER_DAY = 30;
+
+// --- Mastery Projection Calculation ---
+const calculateProjections = (dogData: DogData): { projections: MasteryProjection[], totalHoursRemaining: number, totalDaysRemaining: number } => {
   const today = new Date();
   const projections: MasteryProjection[] = [];
+  let totalMinutesRemaining = 0;
   
-  const activeSkills = SKILL_TREE
-    .flatMap(cat => cat.skills)
-    .filter(s => s.level < 5)
-    .sort(() => 0.5 - Math.random())
-    .slice(0, 5);
+  // Flatten all skills
+  const allSkills = SKILL_TREE.flatMap(cat => cat.skills);
+
+  // Filter for active skills (Not Level 5)
+  const activeSkills = allSkills.filter(s => s.level < 5);
 
   activeSkills.forEach(skill => {
-    const levelsRemaining = 5 - skill.level;
-    const weeksNeeded = levelsRemaining * 2; 
-    const projectedDate = new Date(today);
-    projectedDate.setDate(today.getDate() + (weeksNeeded * 7));
+    let minutesForSkill = 0;
     
+    // Calculate remaining time based on current level up to Level 5
+    for (let lvl = skill.level; lvl < 5; lvl++) {
+       const daysNeeded = DAYS_PER_PHASE[lvl] || 0;
+       minutesForSkill += daysNeeded * MINUTES_PER_DAY;
+    }
+
+    totalMinutesRemaining += minutesForSkill;
+
+    // Calculate projected date for this specific skill
+    // Assumption: Training happens every day for this specific skill (optimistic forecast per skill)
+    // In reality, users rotate skills, so this date represents "If you focused purely on this"
+    // OR we can weight it by saying "If you train 30 mins/day total, this skill gets a slice"
+    // For the "Forecast" UI, we usually show the date assuming consistent work.
+    const daysToMastery = minutesForSkill / MINUTES_PER_DAY;
+    const projectedDate = new Date(today);
+    projectedDate.setDate(today.getDate() + daysToMastery);
+    
+    // Only push top priority or close-to-finish skills to the individual list to avoid clutter
+    // or push all and let UI slice
     projections.push({
       skillName: skill.name,
       currentLevel: skill.level,
-      weeksRemaining: weeksNeeded,
+      weeksRemaining: Math.ceil(daysToMastery / 7),
       projectedDate: projectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     });
   });
   
-  return projections.sort((a, b) => a.weeksRemaining - b.weeksRemaining);
+  // Global Calculation
+  // If the user trains 30 mins/day TOTAL (across all skills), how long until the entire curriculum is done?
+  const totalDaysToCompleteEverything = totalMinutesRemaining / MINUTES_PER_DAY;
+
+  return {
+    projections: projections.sort((a, b) => a.weeksRemaining - b.weeksRemaining), // Sort by nearest completion
+    totalHoursRemaining: Math.round(totalMinutesRemaining / 60),
+    totalDaysRemaining: Math.round(totalDaysToCompleteEverything)
+  };
 };
 
 interface TrainingCalendarProps {
@@ -291,7 +326,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
   };
 
   const selectedDayEvents = filteredEvents.filter(e => e.date === selectedDate);
-  const projections = useMemo(() => calculateProjections(dogData), [dogData]);
+  const { projections, totalHoursRemaining, totalDaysRemaining } = useMemo(() => calculateProjections(dogData), [dogData]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-24">
@@ -510,18 +545,43 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
              <div className="absolute bottom-0 left-0 w-32 h-32 bg-pd-yellow rounded-full opacity-5 -ml-10 -mb-10 blur-3xl"></div>
              <div className="flex items-center gap-3 mb-6 relative z-10">
                 <Target size={24} className="text-pd-yellow" />
-                <h3 className="font-impact text-2xl tracking-wide uppercase">Mastery Forecast</h3>
+                <div>
+                    <h3 className="font-impact text-2xl tracking-wide uppercase leading-none">Mastery Forecast</h3>
+                    <p className="text-[10px] text-pd-teal uppercase font-bold tracking-wider">Based on 30m daily training</p>
+                </div>
              </div>
              
-             <div className="space-y-4 relative z-10">
+             {/* Total Estimate */}
+             <div className="flex gap-4 mb-6 relative z-10 bg-white/10 p-3 rounded-xl border border-white/10">
+                 <div className="flex-1">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-pd-lightest mb-1">Total Hours Left</p>
+                     <div className="flex items-center gap-2">
+                         <Hourglass size={16} className="text-pd-teal" />
+                         <span className="font-impact text-2xl">{totalHoursRemaining}h</span>
+                     </div>
+                 </div>
+                 <div className="w-px bg-white/10"></div>
+                 <div className="flex-1">
+                     <p className="text-[10px] font-bold uppercase tracking-wider text-pd-lightest mb-1">Days to Complete</p>
+                     <div className="flex items-center gap-2">
+                         <CalendarIcon size={16} className="text-pd-yellow" />
+                         <span className="font-impact text-2xl">{totalDaysRemaining}d</span>
+                     </div>
+                 </div>
+             </div>
+
+             <div className="space-y-2 relative z-10 max-h-64 overflow-y-auto custom-scrollbar-dark pr-2">
                 {projections.map((proj, idx) => (
-                   <div key={idx} className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors border border-white/5">
+                   <div key={idx} className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors border border-white/5 group">
                       <div>
-                         <p className="font-bold text-white text-sm">{proj.skillName}</p>
-                         <p className="text-[10px] font-bold text-pd-teal uppercase tracking-wider">Current: Lvl {proj.currentLevel}</p>
+                         <p className="font-bold text-white text-sm leading-tight mb-1">{proj.skillName}</p>
+                         <div className="flex items-center gap-2">
+                             <span className="text-[10px] font-bold text-pd-teal uppercase tracking-wider bg-pd-teal/10 px-2 py-0.5 rounded">Lvl {proj.currentLevel}</span>
+                             <span className="text-[10px] text-pd-lightest/60">→ Maintenance</span>
+                         </div>
                       </div>
                       <div className="text-right">
-                         <p className="font-impact text-lg text-pd-yellow tracking-wide">{proj.projectedDate}</p>
+                         <p className="font-impact text-lg text-pd-yellow tracking-wide group-hover:scale-105 transition-transform">{proj.projectedDate}</p>
                          <p className="text-[10px] font-bold text-pd-lightest/60 uppercase tracking-wider">{proj.weeksRemaining} Weeks</p>
                       </div>
                    </div>
