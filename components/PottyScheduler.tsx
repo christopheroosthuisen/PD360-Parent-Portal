@@ -1,324 +1,451 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { DogData, PottyEvent, PottyScheduleConfig } from '../types';
-import { Card, Button } from './UI';
-import { Clock, Check, Edit2, Save, Droplets, Utensils, Moon, Sun, AlertCircle } from 'lucide-react';
+import { DogData, HealthEvent, MetabolicProfile, Medication } from '../types';
+import { Card, Button, Modal } from './UI';
+import { 
+  Clock, Droplets, Utensils, Activity, AlertTriangle, 
+  CheckCircle2, Plus, Search, Camera, Stethoscope, 
+  Thermometer, Pill, ShieldAlert, Zap, AlertOctagon,
+  ChevronRight, Brain, Bone, Trash2
+} from 'lucide-react';
 
-// --- Helper Functions for Time Math ---
+// --- MOCK DATA ---
+const MOCK_MEDS: Medication[] = [
+  { id: 'm1', name: 'Fluoxetine', dosage: '20mg', frequency: 'Daily (AM)', type: 'Pill', nextDue: '08:00', instructions: 'Give with food', inventory: 12 },
+  { id: 'm2', name: 'Carprofen', dosage: '50mg', frequency: 'As Needed', type: 'Pill', nextDue: '18:00', instructions: 'For pain/inflammation', inventory: 5 }
+];
 
-const timeToMinutes = (time: string) => {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + m;
+// --- HELPERS & ALGORITHMS ---
+
+const calculateMetabolicProfile = (dog: DogData): MetabolicProfile => {
+  const weightKg = dog.weight / 2.20462;
+  const rer = 70 * Math.pow(weightKg, 0.75); // Gold standard RER
+  
+  // Simple logic for activity factor (Mocked based on breed/age for now)
+  // In real app, this comes from collar data
+  let activityFactor = 1.6; // Neutered Adult
+  if (!dog.fixed) activityFactor = 1.8;
+  if (dog.birthDate && new Date().getFullYear() - new Date(dog.birthDate).getFullYear() < 1) activityFactor = 3.0; // Puppy
+
+  const der = rer * activityFactor;
+  const hydrationGoal = weightKg * 60; // approx 60ml/kg
+
+  return {
+    rer: Math.round(rer),
+    der: Math.round(der),
+    activityFactor,
+    hydrationGoalMl: Math.round(hydrationGoal)
+  };
 };
 
-const minutesToTime = (minutes: number) => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+const getRotationDegrees = (timeStr: string) => {
+  const [h, m] = timeStr.split(':').map(Number);
+  const totalMinutes = h * 60 + m;
+  // 24 hours = 1440 mins = 360 degrees
+  return (totalMinutes / 1440) * 360;
 };
 
-const getAgeInMonths = (birthDate: string) => {
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let months = (today.getFullYear() - birth.getFullYear()) * 12;
-  months -= birth.getMonth();
-  months += today.getMonth();
-  return months <= 0 ? 1 : months;
+const formatTime = (date: Date) => {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 };
+
+// --- SUB-COMPONENTS ---
+
+const CircadianDial: React.FC<{ events: HealthEvent[], now: Date }> = ({ events, now }) => {
+  const radius = 120;
+  const center = 150;
+  
+  // Current time hand
+  const nowDegrees = (now.getHours() * 60 + now.getMinutes()) / 1440 * 360;
+
+  return (
+    <div className="relative w-[300px] h-[300px] mx-auto">
+      <svg viewBox="0 0 300 300" className="w-full h-full transform -rotate-90">
+        {/* Background Dial */}
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="#ebeded" strokeWidth="24" />
+        
+        {/* Day/Night Arc (Simulated) */}
+        <path d="M 150, 150 L 150, 30 A 120,120 0 0,1 270,150 Z" fill="#FFDE59" fillOpacity="0.1" /> 
+        <path d="M 150, 150 L 270, 150 A 120,120 0 0,1 30,150 Z" fill="#022D41" fillOpacity="0.05" />
+
+        {/* Events */}
+        {events.map((evt, i) => {
+          const date = new Date(evt.timestamp);
+          const deg = (date.getHours() * 60 + date.getMinutes()) / 1440 * 360;
+          const rad = (deg * Math.PI) / 180;
+          const x = center + radius * Math.cos(rad);
+          const y = center + radius * Math.sin(rad);
+          
+          let color = "#3D4C53";
+          if (evt.type === 'MEAL') color = "#FFDE59"; // Yellow
+          if (evt.type === 'ELIMINATION_POOP' || evt.type === 'ELIMINATION_PEE') color = "#34C6B9"; // Teal
+          if (evt.type === 'MEDICATION') color = "#6366f1"; // Indigo
+          
+          return (
+            <g key={i}>
+              <circle cx={x} cy={y} r={6} fill={color} stroke="white" strokeWidth="2" />
+            </g>
+          );
+        })}
+
+        {/* Current Time Hand */}
+        <line 
+          x1={center} y1={center} 
+          x2={center + (radius + 10) * Math.cos(nowDegrees * Math.PI / 180)} 
+          y2={center + (radius + 10) * Math.sin(nowDegrees * Math.PI / 180)} 
+          stroke="#022D41" strokeWidth="3" strokeLinecap="round"
+        />
+        <circle 
+          cx={center + (radius + 10) * Math.cos(nowDegrees * Math.PI / 180)}
+          cy={center + (radius + 10) * Math.sin(nowDegrees * Math.PI / 180)}
+          r={4} fill="#022D41"
+        />
+      </svg>
+      
+      {/* Center Stats */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+         <span className="font-impact text-4xl text-pd-darkblue tracking-wide">
+            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+         </span>
+         <span className="text-xs font-bold text-pd-softgrey uppercase tracking-wider">Circadian Rhythm</span>
+      </div>
+    </div>
+  );
+};
+
+const FuelGauge: React.FC<{ current: number, max: number, treatCount: number }> = ({ current, max, treatCount }) => {
+  const percentage = Math.min(100, (current / max) * 100);
+  const treatPercentage = Math.min(10, (treatCount / max) * 100); // Max 10% buffer
+  
+  return (
+    <div className="relative w-full h-4 bg-pd-lightest rounded-full overflow-hidden">
+      {/* Main Meal Calories */}
+      <div 
+        className="absolute top-0 left-0 h-full bg-gradient-to-r from-pd-darkblue to-pd-teal transition-all duration-500"
+        style={{ width: `${percentage - treatPercentage}%` }}
+      ></div>
+      {/* Treat Buffer (Yellow) */}
+      <div 
+        className="absolute top-0 h-full bg-pd-yellow border-l-2 border-white transition-all duration-500"
+        style={{ left: `${percentage - treatPercentage}%`, width: `${treatPercentage}%` }}
+      ></div>
+      
+      {/* Tick Marks */}
+      <div className="absolute top-0 left-[50%] w-0.5 h-full bg-white/30"></div>
+      <div className="absolute top-0 left-[90%] w-0.5 h-full bg-red-500/50 z-10"></div> {/* Limit Line */}
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT: APEX HEALTH SYSTEM ---
 
 interface PottySchedulerProps {
   dogData: DogData;
 }
 
 export const PottyScheduler: React.FC<PottySchedulerProps> = ({ dogData }) => {
-  // Configuration State
-  const [config, setConfig] = useState<PottyScheduleConfig>({
-    wakeTime: '07:00',
-    bedTime: '22:00',
-    mealTimes: dogData.feedingSchedule && dogData.feedingSchedule.length > 0 ? dogData.feedingSchedule : ['08:00', '18:00']
-  });
+  const [now, setNow] = useState(new Date());
+  const [logs, setLogs] = useState<HealthEvent[]>([]);
+  const [metabolic, setMetabolic] = useState<MetabolicProfile>(calculateMetabolicProfile(dogData));
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [activeLogType, setActiveLogType] = useState<HealthEvent['type'] | null>(null);
+  
+  // Simulated Environmental Data
+  const [environmentAlert, setEnvironmentAlert] = useState<{type: 'VIRUS' | 'HEAT' | 'NONE', msg: string}>({ type: 'NONE', msg: '' });
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [completedEvents, setCompletedEvents] = useState<string[]>([]);
-
-  // Load completed events from local storage
   useEffect(() => {
-    const saved = localStorage.getItem(`pd360_potty_completed_${dogData.id}_${new Date().toDateString()}`);
-    if (saved) {
-      setCompletedEvents(JSON.parse(saved));
-    } else {
-      setCompletedEvents([]); // Reset on new day
-    }
-  }, [dogData.id]);
-
-  // Save completed events
-  const toggleEvent = (id: string) => {
-    setCompletedEvents(prev => {
-      const next = prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id];
-      localStorage.setItem(`pd360_potty_completed_${dogData.id}_${new Date().toDateString()}`, JSON.stringify(next));
-      return next;
-    });
-  };
-
-  // --- THE ALGORITHM ---
-  const schedule = useMemo(() => {
-    const events: PottyEvent[] = [];
-    const ageMonths = getAgeInMonths(dogData.birthDate);
-    
-    // Rule: Max hold time is 1 hour per month of age, capped at 8 hours (adults)
-    // For very young puppies, we might be stricter.
-    const maxHoldHours = Math.min(ageMonths, 8);
-    const maxHoldMinutes = maxHoldHours * 60;
-
-    // 1. Anchor: Wake Up
-    events.push({
-      id: 'wake',
-      time: config.wakeTime,
-      type: 'POTTY_WAKE',
-      label: 'Morning Elimination',
-      isInput: false,
-      completed: false
-    });
-
-    // 2. Meals & Reflex (Input -> Output)
-    config.mealTimes.forEach((mealTime, idx) => {
-      // Input Event
-      events.push({
-        id: `meal_${idx}`,
-        time: mealTime,
-        type: 'MEAL',
-        label: idx === 0 ? 'Breakfast' : idx === config.mealTimes.length - 1 ? 'Dinner' : 'Lunch',
-        isInput: true,
-        completed: false
-      });
-
-      // Gastrocolic Reflex Output (Meal + 20m)
-      const reflexTime = minutesToTime(timeToMinutes(mealTime) + 20);
-      events.push({
-        id: `potty_meal_${idx}`,
-        time: reflexTime,
-        type: 'POTTY_MEAL',
-        label: 'Post-Meal Potty',
-        isInput: false,
-        completed: false
-      });
-    });
-
-    // 3. Sort existing events
-    events.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
-
-    // 4. Gap Analysis (Insert Maintenance Potties)
-    // We create a new list to avoid mutating the one we are iterating over in a way that messes up indices
-    const finalEvents: PottyEvent[] = [];
-    
-    // Add Bedtime Anchor first to ensure we check the gap before bed
-    const bedEvent: PottyEvent = {
-       id: 'bed',
-       time: config.bedTime,
-       type: 'POTTY_BED',
-       label: 'Last Call',
-       isInput: false,
-       completed: false
+    // Simulating "Bio-Radar" check
+    const checkEnvironment = () => {
+        // Randomly trigger an alert for demo
+        const rand = Math.random();
+        if (rand > 0.7) {
+            setEnvironmentAlert({ type: 'HEAT', msg: 'High Pavement Temp: 145°F. Burn Risk.' });
+        } else if (rand > 0.9) {
+            setEnvironmentAlert({ type: 'VIRUS', msg: 'Local Parvo Outbreak detected in 5mi radius.' });
+        }
     };
+    checkEnvironment();
+    
+    const interval = setInterval(() => setNow(new Date()), 60000); // Update minute
+    return () => clearInterval(interval);
+  }, []);
 
-    // Combine sorted events with bedtime for the loop
-    const allPoints = [...events, bedEvent].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  const dailyCalories = logs
+    .filter(l => new Date(l.timestamp).toDateString() === now.toDateString() && l.calories)
+    .reduce((acc, curr) => acc + (curr.calories || 0), 0);
+    
+  const treatCalories = logs
+    .filter(l => new Date(l.timestamp).toDateString() === now.toDateString() && l.type === 'MEAL' && l.calories && l.calories < 50) // Simple heuristic
+    .reduce((acc, curr) => acc + (curr.calories || 0), 0);
 
-    for (let i = 0; i < allPoints.length - 1; i++) {
-      const current = allPoints[i];
-      const next = allPoints[i + 1];
-      
-      finalEvents.push(current);
-
-      // Calculate gap
-      let startMins = timeToMinutes(current.time);
-      const endMins = timeToMinutes(next.time);
-      
-      // If current is an Input (Meal), the timer technically starts, but we usually have a reflex potty scheduled shortly after.
-      // We mostly care about the gap between the last POTTY and the next event.
-      // However, for simplicity in the "Biological Algorithm", we ensure the bladder isn't full for too long.
-      
-      // Optimization: If current is a MEAL, we know a POTTY_MEAL is likely next.
-      // We only check gaps if the gap > maxHoldMinutes
-      
-      if ((endMins - startMins) > maxHoldMinutes) {
-         // We need to insert breaks
-         let gap = endMins - startMins;
-         let insertCount = Math.floor(gap / maxHoldMinutes);
-         
-         // Don't insert if the remainder is very small (e.g. 10 mins)
-         if (gap % maxHoldMinutes < 30) insertCount--; 
-
-         for (let k = 1; k <= insertCount; k++) {
-            const insertTime = minutesToTime(startMins + (maxHoldMinutes * k));
-            // Avoid duplicates if logic overlaps
-            if (insertTime !== next.time) {
-              finalEvents.push({
-                id: `maint_${current.id}_${k}`,
-                time: insertTime,
-                type: 'POTTY_MAINTENANCE',
-                label: 'Maintenance Break',
-                isInput: false,
-                completed: false
-              });
-            }
-         }
-      }
-    }
-
-    // Add the final point (Bedtime)
-    finalEvents.push(allPoints[allPoints.length - 1]);
-
-    return finalEvents;
-  }, [config, dogData.birthDate]);
-
-  // Apply completed state
-  const eventsWithState = schedule.map(evt => ({
-    ...evt,
-    completed: completedEvents.includes(evt.id)
-  }));
-
-  const handleConfigChange = (field: keyof PottyScheduleConfig, val: any) => {
-     setConfig(prev => ({ ...prev, [field]: val }));
-  };
-
-  const updateMealTime = (idx: number, val: string) => {
-     const newMeals = [...config.mealTimes];
-     newMeals[idx] = val;
-     setConfig(prev => ({ ...prev, mealTimes: newMeals }));
+  const handleQuickLog = (type: HealthEvent['type'], details: any = {}) => {
+    const newLog: HealthEvent = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        type,
+        ...details
+    };
+    setLogs(prev => [...prev, newLog]);
+    setIsLogModalOpen(false);
   };
 
   return (
-    <Card className="bg-white border-2 border-pd-lightest overflow-hidden">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 bg-pd-lightest/20 -m-6 md:-m-8 p-6 md:p-8 border-b-2 border-pd-lightest">
-         <div>
-            <h2 className="font-impact text-3xl text-pd-darkblue uppercase tracking-wide flex items-center gap-2">
-               <Droplets className="text-pd-teal" /> Biological Scheduler
-            </h2>
-            <p className="text-pd-slate font-medium mt-1">
-               Predictive potty plan based on {dogData.name}'s age ({getAgeInMonths(dogData.birthDate)}mo) and metabolism.
-            </p>
-         </div>
-         <Button 
-           variant={isEditing ? 'primary' : 'secondary'} 
-           onClick={() => setIsEditing(!isEditing)}
-           icon={isEditing ? Save : Edit2}
-           className="!py-2 !px-4 !text-xs"
-         >
-            {isEditing ? 'Save Routine' : 'Edit Rhythm'}
-         </Button>
-      </div>
+    <div className="space-y-8">
       
-      {isEditing && (
-         <div className="mb-8 p-4 bg-pd-lightest/30 rounded-xl border border-pd-lightest animate-in slide-in-from-top-2">
-            <h4 className="font-impact text-lg text-pd-darkblue mb-4 uppercase">Daily Rhythm Configuration</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-               <div>
-                  <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-1">Wake Up</label>
-                  <input 
-                    type="time" 
-                    value={config.wakeTime} 
-                    onChange={(e) => handleConfigChange('wakeTime', e.target.value)}
-                    className="w-full p-2 rounded-lg border-2 border-pd-lightest font-bold text-pd-darkblue"
-                  />
-               </div>
-               {config.mealTimes.map((mt, i) => (
-                 <div key={i}>
-                    <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-1">Meal {i+1}</label>
-                    <input 
-                      type="time" 
-                      value={mt} 
-                      onChange={(e) => updateMealTime(i, e.target.value)}
-                      className="w-full p-2 rounded-lg border-2 border-pd-lightest font-bold text-orange-600"
-                    />
-                 </div>
-               ))}
-               <div>
-                  <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-1">Bedtime</label>
-                  <input 
-                    type="time" 
-                    value={config.bedTime} 
-                    onChange={(e) => handleConfigChange('bedTime', e.target.value)}
-                    className="w-full p-2 rounded-lg border-2 border-pd-lightest font-bold text-pd-darkblue"
-                  />
-               </div>
-            </div>
-         </div>
+      {/* 1. ONE HEALTH BIO-RADAR ALERT */}
+      {environmentAlert.type !== 'NONE' && (
+          <div className={`rounded-2xl p-4 flex items-center gap-4 border-2 animate-in slide-in-from-top-4 ${
+              environmentAlert.type === 'VIRUS' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-orange-50 border-orange-200 text-orange-800'
+          }`}>
+              <div className={`p-2 rounded-full ${environmentAlert.type === 'VIRUS' ? 'bg-rose-200' : 'bg-orange-200'}`}>
+                  {environmentAlert.type === 'VIRUS' ? <ShieldAlert size={24} /> : <Thermometer size={24} />}
+              </div>
+              <div className="flex-1">
+                  <h4 className="font-impact uppercase text-lg tracking-wide">Bio-Radar Alert</h4>
+                  <p className="text-sm font-bold">{environmentAlert.msg}</p>
+              </div>
+              <Button variant="secondary" className="!py-2 !px-3 !text-xs">View Map</Button>
+          </div>
       )}
 
-      <div className="relative pl-4 md:pl-8 py-4 mt-4">
-         {/* Vertical Line */}
-         <div className="absolute top-0 bottom-0 left-[27px] md:left-[43px] w-1 bg-pd-lightest rounded-full"></div>
-
-         <div className="space-y-8">
-            {eventsWithState.map((evt, idx) => (
-               <div 
-                 key={evt.id} 
-                 className={`relative flex items-center gap-4 md:gap-6 transition-all duration-300 group ${evt.completed ? 'opacity-50 grayscale' : 'opacity-100'}`}
-               >
-                  {/* Icon Node */}
-                  <div 
-                     onClick={() => toggleEvent(evt.id)}
-                     className={`
-                       w-8 h-8 md:w-10 md:h-10 rounded-full border-4 z-10 flex items-center justify-center cursor-pointer transition-all hover:scale-110 shadow-sm bg-white
-                       ${evt.isInput 
-                          ? 'border-orange-500 text-orange-500' 
-                          : 'border-pd-teal text-pd-teal'
-                       }
-                       ${evt.completed ? 'bg-pd-lightest border-pd-softgrey text-pd-softgrey' : ''}
-                     `}
-                  >
-                     {evt.completed ? (
-                        <Check size={16} strokeWidth={4} />
-                     ) : (
-                        <div className={`w-2.5 h-2.5 rounded-full ${evt.isInput ? 'bg-orange-500' : 'bg-pd-teal'}`}></div>
-                     )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* 2. CIRCADIAN DASHBOARD (Left Col) */}
+          <div className="lg:col-span-1 space-y-6">
+              <Card className="bg-white border-2 border-pd-lightest relative overflow-hidden">
+                  <div className="absolute top-4 left-4 z-10">
+                      <h3 className="font-impact text-2xl text-pd-darkblue uppercase tracking-wide">Daily Rhythm</h3>
+                      <p className="text-xs font-bold text-pd-softgrey uppercase">Bio-Digital Twin</p>
+                  </div>
+                  
+                  <div className="mt-8 mb-4">
+                      <CircadianDial events={logs} now={now} />
                   </div>
 
-                  {/* Content Card */}
-                  <div 
-                    onClick={() => toggleEvent(evt.id)}
-                    className={`flex-1 p-3 md:p-4 rounded-xl border-l-4 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md transition-all bg-white
-                       ${evt.isInput ? 'border-l-orange-500' : 'border-l-pd-teal'}
-                       ${evt.completed ? 'border-l-pd-softgrey bg-pd-lightest/20' : ''}
-                    `}
-                  >
-                     <div className="flex items-center gap-3 md:gap-4">
-                        <div className={`p-2 rounded-lg ${evt.isInput ? 'bg-orange-50 text-orange-600' : 'bg-pd-lightest/50 text-pd-teal'}`}>
-                           {evt.type === 'POTTY_WAKE' && <Sun size={20} />}
-                           {evt.type === 'POTTY_BED' && <Moon size={20} />}
-                           {evt.type === 'MEAL' && <Utensils size={20} />}
-                           {(evt.type === 'POTTY_MEAL' || evt.type === 'POTTY_MAINTENANCE') && <Droplets size={20} />}
-                        </div>
-                        <div>
-                           <p className={`font-impact text-lg md:text-xl uppercase tracking-wide ${evt.completed ? 'line-through text-pd-softgrey' : 'text-pd-darkblue'}`}>
-                              {evt.time}
-                           </p>
-                           <p className="text-xs md:text-sm font-bold text-pd-slate uppercase tracking-wide">
-                              {evt.label}
-                           </p>
-                        </div>
-                     </div>
-
-                     {!evt.completed && (
-                       <div className={`hidden sm:block text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide border ${evt.isInput ? 'text-orange-600 border-orange-200 bg-orange-50' : 'text-pd-teal border-pd-teal/30 bg-pd-teal/5'}`}>
-                          {evt.isInput ? 'Input' : 'Output'}
-                       </div>
-                     )}
+                  {/* Quick Legends */}
+                  <div className="flex justify-center gap-4 mb-4">
+                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-pd-slate">
+                          <div className="w-3 h-3 rounded-full bg-pd-yellow"></div> Meal
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-pd-slate">
+                          <div className="w-3 h-3 rounded-full bg-pd-teal"></div> Potty
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-pd-slate">
+                          <div className="w-3 h-3 rounded-full bg-indigo-500"></div> Meds
+                      </div>
                   </div>
-               </div>
-            ))}
-         </div>
+              </Card>
+
+              {/* Metabolic Thermostat */}
+              <Card className="bg-pd-darkblue text-white border-none">
+                  <div className="flex justify-between items-end mb-2">
+                      <div>
+                          <h3 className="font-impact text-xl uppercase tracking-wide flex items-center gap-2">
+                              <Utensils size={18} className="text-pd-yellow" /> Metabolic Fuel
+                          </h3>
+                          <p className="text-xs text-pd-lightest opacity-70">Target: {metabolic.der} kcal (Active)</p>
+                      </div>
+                      <span className="font-mono font-bold text-2xl">{dailyCalories} kcal</span>
+                  </div>
+                  <FuelGauge current={dailyCalories} max={metabolic.der} treatCount={treatCalories} />
+                  <div className="flex justify-between mt-2 text-[10px] font-bold uppercase text-pd-lightest opacity-60">
+                      <span>0%</span>
+                      <span>Treat Limit (10%)</span>
+                      <span>100%</span>
+                  </div>
+              </Card>
+          </div>
+
+          {/* 3. HEALTH LOGGING & INTELLIGENCE (Right Col - 2/3) */}
+          <div className="lg:col-span-2 space-y-6">
+              
+              {/* Dirty Hands Action Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <button 
+                    onClick={() => { setActiveLogType('ELIMINATION_POOP'); setIsLogModalOpen(true); }}
+                    className="bg-white border-2 border-pd-lightest hover:border-pd-teal hover:shadow-md p-4 rounded-2xl flex flex-col items-center gap-2 transition-all group"
+                  >
+                      <div className="w-12 h-12 rounded-full bg-pd-lightest flex items-center justify-center group-hover:bg-pd-teal group-hover:text-white transition-colors text-pd-darkblue">
+                          <div className="text-2xl">💩</div>
+                      </div>
+                      <span className="font-impact text-lg text-pd-darkblue uppercase tracking-wide">Potty</span>
+                  </button>
+
+                  <button 
+                    onClick={() => { setActiveLogType('MEAL'); setIsLogModalOpen(true); }}
+                    className="bg-white border-2 border-pd-lightest hover:border-pd-yellow hover:shadow-md p-4 rounded-2xl flex flex-col items-center gap-2 transition-all group"
+                  >
+                      <div className="w-12 h-12 rounded-full bg-pd-lightest flex items-center justify-center group-hover:bg-pd-yellow group-hover:text-pd-darkblue transition-colors text-pd-darkblue">
+                          <Bone size={24} />
+                      </div>
+                      <span className="font-impact text-lg text-pd-darkblue uppercase tracking-wide">Meal</span>
+                  </button>
+
+                  <button 
+                    onClick={() => { setActiveLogType('MEDICATION'); setIsLogModalOpen(true); }}
+                    className="bg-white border-2 border-pd-lightest hover:border-indigo-500 hover:shadow-md p-4 rounded-2xl flex flex-col items-center gap-2 transition-all group"
+                  >
+                      <div className="w-12 h-12 rounded-full bg-pd-lightest flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-colors text-pd-darkblue">
+                          <Pill size={24} />
+                      </div>
+                      <span className="font-impact text-lg text-pd-darkblue uppercase tracking-wide">Meds</span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleQuickLog('ACTIVITY', { duration: 30 })}
+                    className="bg-white border-2 border-pd-lightest hover:border-emerald-500 hover:shadow-md p-4 rounded-2xl flex flex-col items-center gap-2 transition-all group"
+                  >
+                      <div className="w-12 h-12 rounded-full bg-pd-lightest flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors text-pd-darkblue">
+                          <Activity size={24} />
+                      </div>
+                      <span className="font-impact text-lg text-pd-darkblue uppercase tracking-wide">Activity</span>
+                  </button>
+              </div>
+
+              {/* Pharmacokinetics Timeline */}
+              <Card className="bg-white border-2 border-pd-lightest">
+                  <div className="flex items-center justify-between mb-6">
+                      <h3 className="font-impact text-xl text-pd-darkblue uppercase tracking-wide flex items-center gap-2">
+                          <Stethoscope size={20} className="text-indigo-500" /> Medication Schedule
+                      </h3>
+                      <Button variant="secondary" className="!py-1 !px-3 !text-xs">Edit Regimen</Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                      {MOCK_MEDS.map(med => (
+                          <div key={med.id} className="flex items-center justify-between p-3 rounded-xl bg-pd-lightest/20 border border-pd-lightest">
+                              <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                      <Pill size={20} />
+                                  </div>
+                                  <div>
+                                      <p className="font-bold text-pd-darkblue">{med.name} <span className="text-xs font-medium text-pd-slate">({med.dosage})</span></p>
+                                      <p className="text-xs text-pd-softgrey font-bold uppercase">{med.instructions}</p>
+                                  </div>
+                              </div>
+                              <div className="text-right">
+                                  <p className="text-xs font-bold text-pd-slate uppercase tracking-wide">Next Due</p>
+                                  <p className="font-mono font-bold text-indigo-600">{med.nextDue}</p>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-100 flex gap-2 items-start">
+                      <AlertTriangle size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-indigo-800 font-medium">
+                          <span className="font-bold">Drug-Symptom Watch:</span> Monitoring for GI upset following Carprofen administration.
+                      </p>
+                  </div>
+              </Card>
+
+              {/* Elimination & Gut Health Analysis */}
+              <div className="grid md:grid-cols-2 gap-6">
+                  <Card className="bg-white border-2 border-pd-lightest">
+                      <h3 className="font-impact text-lg text-pd-darkblue uppercase mb-4 flex items-center gap-2">
+                          <Brain size={18} className="text-pd-teal" /> Gut Intelligence
+                      </h3>
+                      <div className="space-y-3">
+                          <div className="flex justify-between items-center pb-2 border-b border-pd-lightest">
+                              <span className="text-sm font-bold text-pd-slate">Avg. Stool Score</span>
+                              <span className="font-impact text-lg text-emerald-500">3.0 (Optimal)</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-2 border-b border-pd-lightest">
+                              <span className="text-sm font-bold text-pd-slate">Hydration Status</span>
+                              <span className="font-impact text-lg text-pd-darkblue">Good</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                              <span className="text-sm font-bold text-pd-slate">Last Vomit</span>
+                              <span className="font-mono text-sm font-medium text-pd-softgrey">14 Days Ago</span>
+                          </div>
+                      </div>
+                  </Card>
+
+                  <Card className="bg-white border-2 border-pd-lightest">
+                      <h3 className="font-impact text-lg text-pd-darkblue uppercase mb-4 flex items-center gap-2">
+                          <Zap size={18} className="text-pd-yellow" /> Activity Vitals
+                      </h3>
+                      <div className="space-y-3">
+                          <div className="flex justify-between items-center pb-2 border-b border-pd-lightest">
+                              <span className="text-sm font-bold text-pd-slate">Resting Pulse</span>
+                              <span className="font-impact text-lg text-pd-darkblue">68 bpm</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-2 border-b border-pd-lightest">
+                              <span className="text-sm font-bold text-pd-slate">Sleep Quality</span>
+                              <span className="font-impact text-lg text-pd-teal">92%</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                              <span className="text-sm font-bold text-pd-slate">Active Minutes</span>
+                              <span className="font-mono text-sm font-medium text-pd-darkblue">45 / 60 Goal</span>
+                          </div>
+                      </div>
+                  </Card>
+              </div>
+          </div>
       </div>
-      
-      <div className="mt-8 p-4 bg-pd-lightest/30 rounded-xl border border-pd-lightest flex gap-3 items-start">
-         <AlertCircle size={20} className="text-pd-teal shrink-0 mt-0.5" />
-         <p className="text-sm text-pd-slate font-medium leading-relaxed">
-            <span className="font-bold">Algorithm Logic:</span> Schedule calculated based on {dogData.name}'s age ({getAgeInMonths(dogData.birthDate)} months). 
-            Puppies can typically hold their bladder for 1 hour per month of age. 
-            Gaps exceeding this limit automatically trigger a "Maintenance Break".
-         </p>
-      </div>
-    </Card>
+
+      {/* LOG MODAL (Context Aware) */}
+      <Modal isOpen={isLogModalOpen} onClose={() => setIsLogModalOpen(false)} title="Log Health Event">
+          {activeLogType === 'ELIMINATION_POOP' && (
+              <div className="space-y-6">
+                  <div className="text-center p-4 bg-pd-lightest/30 rounded-xl border-2 border-pd-lightest border-dashed cursor-pointer hover:border-pd-teal hover:bg-pd-teal/5 transition-colors">
+                      <Camera size={32} className="mx-auto text-pd-softgrey mb-2" />
+                      <p className="font-bold text-pd-darkblue">Smart Scat Scan</p>
+                      <p className="text-xs text-pd-softgrey">Use AI to grade Bristol Scale</p>
+                  </div>
+                  <div>
+                      <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-2">Manual Grade (Bristol Scale)</label>
+                      <div className="flex justify-between gap-1">
+                          {[1,2,3,4,5,6,7].map(score => (
+                              <button key={score} className="flex-1 aspect-square rounded-lg border-2 border-pd-lightest font-bold text-pd-darkblue hover:bg-pd-teal hover:text-white hover:border-pd-teal transition-colors">
+                                  {score}
+                              </button>
+                          ))}
+                      </div>
+                      <div className="flex justify-between text-[10px] font-bold text-pd-softgrey mt-1 uppercase px-1">
+                          <span>Hard</span>
+                          <span>Ideal</span>
+                          <span>Liquid</span>
+                      </div>
+                  </div>
+                  <Button variant="primary" className="w-full !py-3" onClick={() => handleQuickLog('ELIMINATION_POOP')}>Log Entry</Button>
+              </div>
+          )}
+
+          {activeLogType === 'MEAL' && (
+              <div className="space-y-6">
+                  <div className="flex items-center gap-4 p-4 bg-pd-lightest/30 rounded-xl border border-pd-lightest">
+                      <Camera size={24} className="text-pd-darkblue" />
+                      <div className="flex-1">
+                          <p className="font-bold text-pd-darkblue">KibbleScan™</p>
+                          <p className="text-xs text-pd-softgrey">Scan barcode for recall check & macros</p>
+                      </div>
+                      <ChevronRight size={20} className="text-pd-softgrey" />
+                  </div>
+                  <div>
+                      <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-2">Calories / Portion</label>
+                      <input type="number" placeholder="e.g. 400" className="w-full p-3 bg-white border-2 border-pd-lightest rounded-xl font-bold text-pd-darkblue outline-none focus:border-pd-teal" />
+                  </div>
+                  <Button variant="primary" className="w-full !py-3" onClick={() => handleQuickLog('MEAL', { calories: 400 })}>Log Meal</Button>
+              </div>
+          )}
+
+          {activeLogType === 'MEDICATION' && (
+              <div className="space-y-4">
+                  {MOCK_MEDS.map(med => (
+                      <div key={med.id} className="flex items-center justify-between p-4 bg-white border-2 border-pd-lightest rounded-xl hover:border-indigo-500 cursor-pointer group" onClick={() => handleQuickLog('MEDICATION', { medicationId: med.id })}>
+                          <div>
+                              <p className="font-bold text-pd-darkblue text-lg group-hover:text-indigo-600">{med.name}</p>
+                              <p className="text-xs text-pd-slate">{med.dosage} • {med.instructions}</p>
+                          </div>
+                          <div className="w-8 h-8 rounded-full border-2 border-pd-lightest flex items-center justify-center group-hover:bg-indigo-500 group-hover:border-indigo-500 group-hover:text-white">
+                              <CheckCircle2 size={16} />
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          )}
+      </Modal>
+    </div>
   );
 };

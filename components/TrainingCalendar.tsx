@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, 
@@ -137,6 +138,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+  const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'training' | 'community' | 'vet'>('all');
   
   // --- Regimen State ---
@@ -474,7 +476,10 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
                  return (
                    <div 
                       key={day} 
-                      onClick={() => setSelectedDate(dateStr)}
+                      onClick={() => {
+                          setSelectedDate(dateStr);
+                          setIsDayDetailOpen(true);
+                      }}
                       className={`min-h-[120px] p-2 border-b border-r border-pd-lightest/50 cursor-pointer transition-all hover:bg-pd-lightest/20 relative group
                         ${isSelected ? 'bg-pd-teal/5 ring-2 ring-inset ring-pd-teal' : ''}
                       `}
@@ -514,84 +519,11 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
           {isGenerating && <ProgressBar progress={loadingProgress} label="Structuring Training Plan..." />}
         </div>
 
-        {/* Right Column: Day Detail & Projections (1/3) */}
+        {/* Right Column: Projections Only (1/3) */}
         <div className="space-y-6">
           
-          {/* Selected Day Detail */}
-          <Card className="bg-white border-l-8 border-l-pd-teal h-[600px] flex flex-col relative overflow-hidden">
-             <div className="flex justify-between items-center mb-6 border-b-2 border-pd-lightest pb-4">
-               <div>
-                  <h3 className="font-impact text-3xl text-pd-darkblue uppercase tracking-wide">
-                     {displayDate.toLocaleDateString('en-US', { weekday: 'long' })}
-                  </h3>
-                  <p className="text-pd-slate font-medium">
-                     {displayDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                  </p>
-               </div>
-               <div className="p-3 bg-pd-lightest rounded-2xl text-pd-teal">
-                  <CalendarIcon size={28} />
-               </div>
-             </div>
-
-             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-2">
-                {selectedDayEvents.length === 0 ? (
-                   <div className="text-center py-12 text-pd-softgrey">
-                      <p className="italic font-medium">No sessions scheduled.</p>
-                      <Button variant="ghost" className="mt-4 mx-auto" onClick={() => setShowAddEventModal(true)}>Add Session</Button>
-                   </div>
-                ) : (
-                   selectedDayEvents.map(evt => (
-                      <div key={evt.id} className="group animate-in slide-in-from-right duration-300">
-                         <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                               {evt.type === 'training' && <Dumbbell size={18} className="text-blue-500" />}
-                               {evt.type === 'community' && <Users size={18} className="text-purple-500" />}
-                               {evt.type === 'vet' && <Stethoscope size={18} className="text-emerald-500" />}
-                               <span className="font-impact text-lg text-pd-darkblue tracking-wide uppercase">{evt.title}</span>
-                            </div>
-                            <button onClick={() => deleteEvent(evt.id)} className="text-pd-lightest hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
-                               <Trash2 size={16} />
-                            </button>
-                         </div>
-
-                         <div className="bg-pd-lightest/30 rounded-xl p-4 border border-pd-lightest group-hover:border-pd-teal/30 transition-colors">
-                            {evt.time && (
-                               <div className="flex items-center gap-2 text-xs font-bold text-pd-softgrey uppercase tracking-wide mb-3">
-                                  <Clock size={12} /> {evt.time}
-                                  {evt.location && <span>• {evt.location}</span>}
-                               </div>
-                            )}
-                            
-                            {evt.tasks ? (
-                               <div className="space-y-2">
-                                  {evt.tasks.map(task => (
-                                     <div 
-                                       key={task.id} 
-                                       onClick={() => toggleTaskCompletion(evt.id, task.id)}
-                                       className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all border border-transparent ${task.completed ? 'bg-emerald-50/50' : 'bg-white hover:border-pd-lightest hover:shadow-sm'}`}
-                                     >
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-pd-softgrey text-transparent bg-white'}`}>
-                                           {task.completed && <Check size={12} strokeWidth={4} />}
-                                        </div>
-                                        <div className="flex-1">
-                                           <p className={`text-sm font-bold leading-tight ${task.completed ? 'text-pd-softgrey line-through' : 'text-pd-darkblue'}`}>{task.name}</p>
-                                           <p className="text-[10px] font-bold uppercase text-pd-softgrey mt-0.5">{task.category} • {task.duration}</p>
-                                        </div>
-                                     </div>
-                                  ))}
-                               </div>
-                            ) : (
-                               <p className="text-sm text-pd-slate font-medium">{evt.description}</p>
-                            )}
-                         </div>
-                      </div>
-                   ))
-                )}
-             </div>
-          </Card>
-
           {/* Mastery Projections Card */}
-          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden flex flex-col">
+          <Card className="bg-pd-darkblue text-white border-none relative overflow-hidden flex flex-col sticky top-6">
              <div className="absolute bottom-0 left-0 w-32 h-32 bg-pd-yellow rounded-full opacity-5 -ml-10 -mb-10 blur-3xl"></div>
              
              {/* Header with Regimen Toggle */}
@@ -727,6 +659,82 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
 
         </div>
       </div>
+
+      {/* Day Detail Modal */}
+      <Modal isOpen={isDayDetailOpen} onClose={() => setIsDayDetailOpen(false)} title={displayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}>
+         <div className="space-y-6 min-h-[300px]">
+            <div className="flex items-center justify-between border-b border-pd-lightest pb-4">
+               <div>
+                  <h4 className="font-impact text-2xl text-pd-darkblue uppercase">Daily Agenda</h4>
+                  <p className="text-xs font-bold text-pd-softgrey uppercase tracking-wider">{selectedDayEvents.length} Events Scheduled</p>
+               </div>
+               <Button variant="secondary" icon={Plus} onClick={() => setShowAddEventModal(true)} className="!py-2 !px-4 !text-xs">Add</Button>
+            </div>
+
+            {selectedDayEvents.length === 0 ? (
+               <div className="flex flex-col items-center justify-center py-12 text-pd-softgrey border-2 border-dashed border-pd-lightest rounded-2xl bg-pd-lightest/20">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
+                     <CalendarIcon size={24} className="opacity-50" />
+                  </div>
+                  <p className="italic font-medium">No sessions scheduled for this day.</p>
+                  <Button variant="primary" className="mt-6" onClick={() => setShowAddEventModal(true)}>Schedule Session</Button>
+               </div>
+            ) : (
+               <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
+                  {selectedDayEvents.map(evt => (
+                      <div key={evt.id} className="group animate-in slide-in-from-bottom-2 duration-300">
+                         <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                               {evt.type === 'training' && <Dumbbell size={16} className="text-blue-500" />}
+                               {evt.type === 'community' && <Users size={16} className="text-purple-500" />}
+                               {evt.type === 'vet' && <Stethoscope size={16} className="text-emerald-500" />}
+                               <span className="font-impact text-lg text-pd-darkblue tracking-wide uppercase">{evt.title}</span>
+                            </div>
+                            <button 
+                               onClick={(e) => { e.stopPropagation(); deleteEvent(evt.id); }} 
+                               className="text-pd-lightest hover:text-rose-400 transition-colors p-1 rounded hover:bg-rose-50"
+                               title="Delete Event"
+                            >
+                               <Trash2 size={16} />
+                            </button>
+                         </div>
+
+                         <div className="bg-pd-lightest/30 rounded-xl p-4 border border-pd-lightest group-hover:border-pd-teal/30 transition-colors">
+                            {evt.time && (
+                               <div className="flex items-center gap-2 text-xs font-bold text-pd-softgrey uppercase tracking-wide mb-3">
+                                  <Clock size={12} /> {evt.time}
+                                  {evt.location && <span>• {evt.location}</span>}
+                               </div>
+                            )}
+                            
+                            {evt.tasks ? (
+                               <div className="space-y-2">
+                                  {evt.tasks.map(task => (
+                                     <div 
+                                       key={task.id} 
+                                       onClick={() => toggleTaskCompletion(evt.id, task.id)}
+                                       className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all border border-transparent ${task.completed ? 'bg-emerald-50/50' : 'bg-white hover:border-pd-lightest hover:shadow-sm'}`}
+                                     >
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-pd-softgrey text-transparent bg-white'}`}>
+                                           {task.completed && <Check size={12} strokeWidth={4} />}
+                                        </div>
+                                        <div className="flex-1">
+                                           <p className={`text-sm font-bold leading-tight ${task.completed ? 'text-pd-softgrey line-through' : 'text-pd-darkblue'}`}>{task.name}</p>
+                                           <p className="text-[10px] font-bold uppercase text-pd-softgrey mt-0.5">{task.category} • {task.duration}</p>
+                                        </div>
+                                     </div>
+                                  ))}
+                               </div>
+                            ) : (
+                               <p className="text-sm text-pd-slate font-medium">{evt.description}</p>
+                            )}
+                         </div>
+                      </div>
+                   ))}
+               </div>
+            )}
+         </div>
+      </Modal>
 
       {/* Add Event Modal */}
       <Modal isOpen={showAddEventModal} onClose={() => setShowAddEventModal(false)} title="Add Session">

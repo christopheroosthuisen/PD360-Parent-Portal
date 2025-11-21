@@ -24,9 +24,15 @@ export interface SkillCategory {
 }
 
 export interface Medication {
+  id: string;
   name: string;
   dosage: string;
   frequency: string;
+  type: 'Pill' | 'Liquid' | 'Injection' | 'Topical';
+  nextDue: string; // ISO string
+  instructions?: string; // e.g. "With food"
+  inventory?: number;
+  isTapering?: boolean;
 }
 
 export interface Vaccination {
@@ -416,22 +422,43 @@ export interface SubscriptionTier {
   recommended?: boolean;
 }
 
-// --- Potty Scheduler Types ---
-export type PottyEventType = 'MEAL' | 'POTTY_WAKE' | 'POTTY_MEAL' | 'POTTY_MAINTENANCE' | 'POTTY_BED' | 'ACTIVITY';
+// --- Apex Health Types ---
 
-export interface PottyEvent {
-  id: string;
-  time: string; // HH:mm
-  type: PottyEventType;
-  label: string;
-  isInput: boolean; // true if meal/water (orange), false if elimination (teal)
-  completed: boolean;
+// Bristol Stool Scale (1-7)
+export type BristolScore = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface StoolLog {
+  score: BristolScore;
+  color: 'Brown' | 'Black' | 'Red' | 'Yellow' | 'Green' | 'White';
+  foreignObjects?: string[]; // e.g. "Plastic", "Bone"
+  notes?: string;
 }
 
-export interface PottyScheduleConfig {
-  wakeTime: string;
-  bedTime: string;
-  mealTimes: string[];
+export interface VomitLog {
+  color: 'Yellow/Bile' | 'Coffee Grounds' | 'White Foam' | 'Green' | 'Undigested Food';
+  contents?: string;
+  isEmergency?: boolean;
+}
+
+export interface HealthEvent {
+  id: string;
+  timestamp: string; // ISO string
+  type: 'MEAL' | 'ELIMINATION_PEE' | 'ELIMINATION_POOP' | 'VOMIT' | 'MEDICATION' | 'WATER' | 'ACTIVITY' | 'SEIZURE';
+  
+  // Contextual Data
+  calories?: number;
+  volumeMl?: number;
+  medicationId?: string;
+  stoolData?: StoolLog;
+  vomitData?: VomitLog;
+  seizureDurationSec?: number;
+}
+
+export interface MetabolicProfile {
+  rer: number; // Resting Energy Requirement
+  der: number; // Daily Energy Requirement
+  activityFactor: number;
+  hydrationGoalMl: number;
 }
 
 // --- Shop Types ---
