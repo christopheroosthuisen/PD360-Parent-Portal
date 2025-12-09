@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, ProgressBar } from './UI';
 import { SKILL_TREE } from '../constants';
 import { Play, Square, CheckCircle2, XCircle, Mic, Volume2, Clock, AlertCircle, Sparkles } from 'lucide-react';
-import { TrainingTask, SessionLog, ActiveSession } from '../types';
+import { TrainingTask, SessionLog, ActiveSession, TrainingSessionRecord } from '../types';
+import { DataService } from '../services/dataService';
 
 interface ActiveTrainingProps {
   dogId: string;
@@ -37,7 +39,6 @@ export const ActiveTraining: React.FC<ActiveTrainingProps> = ({ dogId, initialSk
   }, [mode, isListening]);
 
   const toggleSkill = (skillName: string) => {
-     // Simple toggle for setup (mock adding if not present, logic simplified for demo)
      const exists = selectedSkills.find(s => s.name === skillName);
      if (exists) {
         setSelectedSkills(prev => prev.filter(s => s.name !== skillName));
@@ -59,9 +60,27 @@ export const ActiveTraining: React.FC<ActiveTrainingProps> = ({ dogId, initialSk
     addLog('system', 'Session Started');
   };
 
-  const endSession = () => {
+  const endSession = async () => {
     setMode('summary');
     addLog('system', 'Session Ended');
+    
+    // Log to DB
+    const sessionRecord: TrainingSessionRecord = {
+        id: `sess_${Date.now()}`,
+        dogId: dogId,
+        date: new Date().toISOString(),
+        durationSeconds: sessionTime,
+        skillsWorked: Object.entries(activeStats).map(([name, stats]) => {
+            const typedStats = stats as { success: number; fail: number };
+            return {
+                skillName: name,
+                successCount: typedStats.success,
+                failCount: typedStats.fail
+            };
+        }),
+        notes: "Automated Log"
+    };
+    await DataService.logTrainingSession(sessionRecord);
   };
 
   const addLog = (type: SessionLog['type'], detail: string) => {

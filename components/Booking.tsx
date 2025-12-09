@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { DogData, ServiceOption, AddOn } from '../types';
-import { BOOKING_SERVICES, BOOKING_ADDONS, MOCK_FACILITIES } from '../constants';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { DogData, ServiceOption, AddOn, Facility, Reservation } from '../types';
 import { Card, Button } from './UI';
-import { Calendar as CalendarIcon, Clock, CheckCircle, Plus, Minus, Dog, DollarSign, ChevronRight, ChevronLeft, MapPin, GraduationCap, Star } from 'lucide-react';
+import { DataService } from '../services/dataService';
+import { Calendar as CalendarIcon, CheckCircle, Plus, Minus, Dog, DollarSign, ChevronRight, ChevronLeft, MapPin, GraduationCap, Star, Loader } from 'lucide-react';
 
 interface BookingProps {
   dogData: DogData;
@@ -19,20 +20,48 @@ const STEPS = [
 export const Booking: React.FC<BookingProps> = ({ dogData }) => {
   const [step, setStep] = useState(1);
   
+  // Data State
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
+  const [addons, setAddons] = useState<AddOn[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   // Booking State
   const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [dropOffTime, setDropOffTime] = useState('09:00');
   const [pickUpTime, setPickUpTime] = useState('17:00');
-  const [selectedServiceId, setSelectedServiceId] = useState<string>(BOOKING_SERVICES[0].id);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedAddons, setSelectedAddons] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const selectedFacility = MOCK_FACILITIES.find(f => f.id === selectedFacilityId);
-  const selectedService = BOOKING_SERVICES.find(s => s.id === selectedServiceId);
+  useEffect(() => {
+    const loadBookingData = async () => {
+        try {
+            const [fetchedFacs, fetchedServs] = await Promise.all([
+                DataService.fetchFacilities(),
+                DataService.fetchServices()
+            ]);
+            setFacilities(fetchedFacs);
+            setServices(fetchedServs.services);
+            setAddons(fetchedServs.addons);
+            if (fetchedServs.services.length > 0) {
+                setSelectedServiceId(fetchedServs.services[0].id);
+            }
+        } catch (error) {
+            console.error("Failed to load booking data", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    loadBookingData();
+  }, []);
+
+  const selectedFacility = facilities.find(f => f.id === selectedFacilityId);
+  const selectedService = services.find(s => s.id === selectedServiceId);
 
   // Helper to calculate cost
   const costBreakdown = useMemo(() => {
@@ -46,16 +75,16 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
     const serviceTotal = selectedService.price * diffDays;
     
     let addonsTotal = 0;
-    const addonItems: { name: string; qty: number; price: number; total: number }[] = [];
+    const addonItems: { id: string; name: string; qty: number; price: number; total: number }[] = [];
 
     Object.entries(selectedAddons).forEach(([id, qtyValue]) => {
       const qty = qtyValue as number;
       if (qty > 0) {
-        const addon = BOOKING_ADDONS.find(a => a.id === id);
+        const addon = addons.find(a => a.id === id);
         if (addon) {
             const total = addon.price * qty;
             addonsTotal += total;
-            addonItems.push({ name: addon.name, qty, price: addon.price, total });
+            addonItems.push({ id: addon.id, name: addon.name, qty, price: addon.price, total });
         }
       }
     });
@@ -67,7 +96,7 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
       grandTotal: serviceTotal + addonsTotal,
       addonItems
     };
-  }, [startDate, endDate, selectedServiceId, selectedAddons]);
+  }, [startDate, endDate, selectedServiceId, selectedAddons, selectedService, addons]);
 
   const handleAddonToggle = (id: string, increment: boolean) => {
     setSelectedAddons(prev => {
@@ -77,12 +106,43 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!selectedFacilityId || !selectedService || !costBreakdown) return;
+    
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-    }, 1500);
+    
+    const reservation: Reservation = {
+        id: `res_${Date.now()}`,
+        userId: dogData.owner.id,
+        dogId: dogData.id,
+        facilityId: selectedFacilityId,
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        startDate,
+        endDate,
+        dropOffTime,
+        pickUpTime,
+        addOns: costBreakdown.addonItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.qty
+        })),
+        notes,
+        totalPrice: costBreakdown.grandTotal,
+        status: 'pending',
+        paymentStatus: 'unpaid'
+    };
+
+    try {
+        await DataService.createReservation(reservation);
+        setIsSuccess(true);
+    } catch (e) {
+        console.error("Booking Failed", e);
+        alert("Booking failed. Please try again.");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const reset = () => {
@@ -94,6 +154,10 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
     setNotes('');
     setIsSuccess(false);
   };
+
+  if (isLoading) {
+      return <div className="flex items-center justify-center min-h-[400px]"><Loader className="animate-spin text-pd-teal" size={40} /></div>;
+  }
 
   if (isSuccess) {
     return (
@@ -161,7 +225,7 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         {MOCK_FACILITIES.map(facility => (
+                         {facilities.map(facility => (
                             <div 
                                key={facility.id}
                                onClick={() => setSelectedFacilityId(facility.id)}
@@ -271,7 +335,7 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
                             Primary Service
                          </h3>
                          <div className="grid md:grid-cols-2 gap-4">
-                            {BOOKING_SERVICES.map(service => (
+                            {services.map(service => (
                                <div 
                                  key={service.id}
                                  onClick={() => setSelectedServiceId(service.id)}
@@ -302,7 +366,7 @@ export const Booking: React.FC<BookingProps> = ({ dogData }) => {
                             Customize Stay
                          </h3>
                          <div className="grid gap-3">
-                            {BOOKING_ADDONS.map(addon => (
+                            {addons.map(addon => (
                                <div key={addon.id} className={`flex items-center justify-between p-4 rounded-xl border-2 transition-colors ${selectedAddons[addon.id] ? 'bg-white border-pd-teal shadow-sm' : 'bg-white border-pd-lightest hover:border-pd-softgrey'}`}>
                                   <div className="flex-1">
                                      <div className="flex items-center gap-2 mb-1">

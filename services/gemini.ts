@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 export const generateContent = async (
@@ -62,8 +63,15 @@ export const generateImage = async (prompt: string): Promise<string | null> => {
       },
     });
 
-    // Iterate to find image part
-    for (const part of response.candidates[0].content.parts) {
+    // Iterate to find image part using the standard SDK structure
+    // Check if candidates exist and have content
+    const candidates = response.candidates;
+    if (!candidates || candidates.length === 0) return null;
+
+    const parts = candidates[0].content?.parts;
+    if (!parts) return null;
+
+    for (const part of parts) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }

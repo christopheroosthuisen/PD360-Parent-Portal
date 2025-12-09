@@ -38,15 +38,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addToCart = (product: Product, variant?: ProductVariant, quantity = 1) => {
     setItems(prev => {
-      // Create a unique ID for cart item based on product + variant
-      const cartItemId = variant ? `${product.id}-${variant.id}` : product.id;
-      const existing = prev.find(i => (variant ? i.variantId === variant.id : i.id === product.id));
+      // Robust check: Must match Product ID AND Variant ID (handling undefined/null)
+      const existingIndex = prev.findIndex(i => {
+        const sameProduct = i.id === product.id;
+        const sameVariant = i.variantId === (variant?.id || undefined);
+        return sameProduct && sameVariant;
+      });
 
-      if (existing) {
-        return prev.map(i => i.id === product.id && i.variantId === variant?.id 
-          ? { ...i, quantity: i.quantity + quantity } 
-          : i
-        );
+      if (existingIndex > -1) {
+        const newItems = [...prev];
+        newItems[existingIndex] = {
+          ...newItems[existingIndex],
+          quantity: newItems[existingIndex].quantity + quantity
+        };
+        return newItems;
       }
 
       const newItem: CartItem = {
@@ -63,40 +68,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const removeFromCart = (cartItemId: string) => {
-    // Note: In our logic, cartItemId for removal needs to match how we identify items.
-    // For simplicity, let's assume we filter by checking product.id AND variantId match, 
-    // OR we assign a unique guid to every cart item. 
-    // Let's stick to filtering by the composite key logic used in addToCart.
-    // BUT `removeFromCart` receives an ID. Let's assume the UI passes the product ID or we add a `cartId` to `CartItem`.
-    // Refactor: Add cartId to CartItem? Or just filter carefully.
-    // Let's filter by checking if the item matches.
-    // Wait, the simplest way is to just pass the index or assign a unique ID.
-    // Let's generate a unique `cartId` for each item in `addToCart`? No, `types.ts` doesn't have it.
-    // Let's just rebuild `items` excluding the specific product+variant combo.
-    
-    // Actually, simpler: The `removeFromCart` in the UI will likely pass the specific item object or we can just pass the index?
-    // Let's iterate and remove.
-    
-    // Hack for now: Assume itemId passed is the product ID, but if variants exist this removes all variants.
-    // Better: Pass a composite ID.
-    
-    // Let's update `removeFromCart` to take the index? No, safer to take composite ID.
-    // Let's change `types.ts` later or just assume unique composite ID string is passed.
-    
-    // Correction: Let's update the logic to filter based on a composite check.
-    // Actually, let's just filter out the exact object reference if passed? No.
-    
-    // Implementation: We will trust the caller passes a constructed ID like "prodId-varId" or "prodId".
-    // See addToCart logic: `const cartItemId = variant ? ...` -> This isn't stored on the item though.
-    // Let's just filter:
-    
+    // Rely on the composite key generated in UI (Product ID or ProductID:::VariantID)
+    // Or simpler: filter based on reconstructing the ID on the fly
     setItems(prev => {
-       // We need to know specifically which item.
-       // Let's rely on the UI passing the index for safety in this simple implementation, 
-       // OR add a temporary `uuid` to CartItem.
-       // I'll assume `cartItemId` passed is `product.id` for simple items, or `product.id:::variant.id` for variants.
-       
        return prev.filter(i => {
+          // Construct composite ID for the current item to match against passed ID
           const currentId = i.variantId ? `${i.id}:::${i.variantId}` : i.id;
           return currentId !== cartItemId;
        });

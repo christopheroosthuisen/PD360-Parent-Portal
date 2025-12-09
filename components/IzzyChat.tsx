@@ -1,16 +1,21 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { generateContent } from '../services/gemini';
 import { DogData, ChatMessage, CoachConversation } from '../types';
 import { getCurrentGrade } from '../constants';
+import { DataService } from '../services/dataService';
 import { 
-  MessageCircle, X, Send, Loader, ChevronUp, Maximize2, 
-  Bot, ShoppingBag, User, CreditCard, CheckCircle, 
-  Plus, Minus, MapPin, Lock, Trash2, Sparkles
+  Bot, ShoppingBag, User, Maximize2, ChevronUp, Send, Loader, Sparkles, Plus
 } from 'lucide-react';
 import { Button } from './UI';
+import { useCart } from '../CartContext';
 
-// --- MOCK DATA FOR LOCAL WIDGET ---
+// Define Custom Event Type for global window object
+declare global {
+  interface WindowEventMap {
+    'ask-izzy': CustomEvent<{ message: string; autoSend: boolean }>;
+  }
+}
 
 interface QuickProduct {
   id: string;
@@ -18,13 +23,17 @@ interface QuickProduct {
   price: number;
   image: string;
   description: string;
+  categoryId?: string;
+  brand?: string;
+  basePrice?: number;
+  title?: string;
 }
 
 const RECOMMENDED_PRODUCTS: QuickProduct[] = [
-  { id: 'p1', name: 'High Value Training Treats', price: 12.99, image: 'https://images.unsplash.com/photo-1582798358481-d199fb7347bb?auto=format&fit=crop&w=200&q=80', description: 'Perfect for marking behaviors.' },
-  { id: 'p2', name: 'Biothane Long Line (15ft)', price: 24.99, image: 'https://images.unsplash.com/photo-1551856392-f07d5203001e?auto=format&fit=crop&w=200&q=80', description: 'Essential for recall training.' },
-  { id: 'p3', name: 'Kuranda Place Bed', price: 89.99, image: 'https://images.unsplash.com/photo-1581888227599-779811985203?auto=format&fit=crop&w=200&q=80', description: 'The gold standard for "Place".' },
-  { id: 'p4', name: 'Herm Sprenger Prong', price: 29.99, image: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=200&q=80', description: 'Made in Germany. Chrome.' }
+  { id: 'p1', name: 'High Value Training Treats', price: 12.99, image: 'https://images.unsplash.com/photo-1582798358481-d199fb7347bb?auto=format&fit=crop&w=200&q=80', description: 'Perfect for marking behaviors.', categoryId: 'training', brand: 'Partners', basePrice: 12.99, title: 'High Value Training Treats' },
+  { id: 'p2', name: 'Biothane Long Line (15ft)', price: 24.99, image: 'https://images.unsplash.com/photo-1551856392-f07d5203001e?auto=format&fit=crop&w=200&q=80', description: 'Essential for recall training.', categoryId: 'training', brand: 'Partners', basePrice: 24.99, title: 'Biothane Long Line (15ft)' },
+  { id: 'p3', name: 'Kuranda Place Bed', price: 89.99, image: 'https://images.unsplash.com/photo-1581888227599-779811985203?auto=format&fit=crop&w=200&q=80', description: 'The gold standard for "Place".', categoryId: 'training', brand: 'Kuranda', basePrice: 89.99, title: 'Kuranda Place Bed' },
+  { id: 'p4', name: 'Herm Sprenger Prong', price: 29.99, image: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=200&q=80', description: 'Made in Germany. Chrome.', categoryId: 'collars', brand: 'Herm Sprenger', basePrice: 29.99, title: 'Herm Sprenger Prong' }
 ];
 
 interface IzzyChatProps {
@@ -39,17 +48,12 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
 
   // --- 1. AI STATE (Izzy) ---
   const [aiInput, setAiInput] = useState('');
-  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
-    { role: 'ai', text: `Hi! I'm Izzy, your Partners Dogs 360 guide. 🐾\n\nI can help you analyze training videos, interpret behavior scores, or suggest homework exercises. What's on your mind?` }
-  ]);
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([]);
   const [isAiTyping, setIsAiTyping] = useState(false);
   const aiMessagesEndRef = useRef<HTMLDivElement>(null);
 
   // --- 2. SHOP STATE ---
-  const [cart, setCart] = useState<{product: QuickProduct, qty: number}[]>([]);
-  const [shopView, setShopView] = useState<'browse' | 'checkout'>('browse');
-  const [isPaying, setIsPaying] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const { addToCart, items: cartItems, cartTotal, toggleCart } = useCart();
 
   // --- 3. COACH STATE ---
   const [conversations, setConversations] = useState<CoachConversation[]>([
@@ -72,6 +76,26 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
   const [coachInput, setCoachInput] = useState('');
   const coachMessagesEndRef = useRef<HTMLDivElement>(null);
 
+  // LOAD HISTORY
+  useEffect(() => {
+    const loadHistory = async () => {
+        const history = await DataService.fetchChatHistory(dogData.id);
+        if (history.length > 0) {
+            setAiMessages(history);
+        } else {
+            setAiMessages([{ role: 'ai', text: `Hi! I'm Izzy, your Partners Dogs 360 guide. 🐾\n\nI can help you analyze training videos, interpret behavior scores, or suggest homework exercises. What's on your mind?` }]);
+        }
+    };
+    loadHistory();
+  }, [dogData.id]);
+
+  // SAVE HISTORY
+  useEffect(() => {
+    if (aiMessages.length > 0) {
+        DataService.saveChatHistory(dogData.id, aiMessages);
+    }
+  }, [aiMessages, dogData.id]);
+
   // --- SCROLL HELPERS ---
   const scrollToBottom = (ref: React.RefObject<HTMLDivElement>) => {
     ref.current?.scrollIntoView({ behavior: "smooth" });
@@ -85,7 +109,7 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
 
   // --- EVENT LISTENERS ---
   useEffect(() => {
-    const handleAskIzzy = (event: CustomEvent) => {
+    const handleAskIzzy = (event: CustomEvent<{ message: string; autoSend: boolean }>) => {
       const { message, autoSend } = event.detail;
       setIsOpen(true);
       setActiveTab('ai');
@@ -95,8 +119,10 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
         setAiInput(message);
       }
     };
-    window.addEventListener('ask-izzy' as any, handleAskIzzy as any);
-    return () => window.removeEventListener('ask-izzy' as any, handleAskIzzy as any);
+    
+    // Explicitly cast the listener to avoid TS errors
+    window.addEventListener('ask-izzy', handleAskIzzy as EventListener);
+    return () => window.removeEventListener('ask-izzy', handleAskIzzy as EventListener);
   }, [dogData]);
 
   // --- AI LOGIC ---
@@ -104,7 +130,8 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
     const textToSend = overrideInput || aiInput;
     if (!textToSend.trim()) return;
 
-    setAiMessages(prev => [...prev, { role: 'user', text: textToSend }]);
+    const newMessages = [...aiMessages, { role: 'user', text: textToSend } as const];
+    setAiMessages(newMessages);
     setAiInput('');
     setIsAiTyping(true);
 
@@ -117,42 +144,32 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
           You are Izzy, the AI assistant for Partners Dogs 360.
         `;
         const response = await generateContent(textToSend, "gemini-3-pro-preview", context);
-        setAiMessages(prev => [...prev, { role: 'ai', text: response }]);
+        setAiMessages([...newMessages, { role: 'ai', text: response }]);
     } catch (e) {
-        setAiMessages(prev => [...prev, { role: 'ai', text: "I'm having a little trouble connecting right now." }]);
+        setAiMessages([...newMessages, { role: 'ai', text: "I'm having a little trouble connecting right now." }]);
     } finally {
         setIsAiTyping(false);
     }
   };
 
   // --- SHOP LOGIC ---
-  const addToCart = (product: QuickProduct) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.product.id === product.id);
-      if (existing) {
-        return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i);
-      }
-      return [...prev, { product, qty: 1 }];
-    });
+  const handleQuickAdd = (prod: QuickProduct) => {
+      addToCart({
+          id: prod.id,
+          title: prod.title || prod.name,
+          basePrice: prod.basePrice || prod.price,
+          categoryId: prod.categoryId as any || 'training',
+          brand: prod.brand || 'Partners',
+          description: prod.description,
+          hasVariants: false,
+          image: prod.image,
+          inStock: true
+      });
   };
 
-  const removeFromCart = (productId: string) => {
-     setCart(prev => prev.filter(i => i.product.id !== productId));
-  };
-
-  const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * item.qty), 0);
-
-  const handleCheckout = () => {
-      setIsPaying(true);
-      setTimeout(() => {
-          setIsPaying(false);
-          setPaymentSuccess(true);
-          setTimeout(() => {
-              setCart([]);
-              setPaymentSuccess(false);
-              setShopView('browse');
-          }, 2000);
-      }, 2000);
+  const openGlobalCart = () => {
+      setIsOpen(false);
+      toggleCart(true); 
   };
 
   // --- COACH LOGIC ---
@@ -170,7 +187,6 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
     setCoachInput('');
   };
 
-  // --- FLOATING BUTTON ---
   if (!isOpen) {
     return (
       <button 
@@ -186,7 +202,6 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
     <div className={`fixed z-50 bg-white shadow-2xl flex flex-col transition-all duration-300 overflow-hidden border-2 border-pd-darkblue
       ${isExpanded ? 'inset-6 md:inset-20 rounded-3xl' : 'bottom-8 right-8 w-[90vw] md:w-[420px] h-[650px] rounded-3xl'}
     `}>
-      
       {/* HEADER */}
       <div className="bg-pd-darkblue p-4 shrink-0 border-b-4 border-pd-teal text-white flex items-center justify-between">
          <div className="flex items-center gap-3">
@@ -265,121 +280,61 @@ export const IzzyChat: React.FC<IzzyChatProps> = ({ dogData }) => {
           {/* 2. SHOP TAB */}
           {activeTab === 'shop' && (
               <div className="flex flex-col h-full overflow-hidden">
-                  {shopView === 'browse' ? (
-                      <>
-                         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                             {/* Recommended */}
-                             <div>
-                                 <h4 className="font-impact text-lg text-pd-darkblue uppercase mb-3 flex items-center gap-2">
-                                     <Sparkles size={16} className="text-pd-yellow" /> Recommended for {dogData.name}
-                                 </h4>
-                                 <div className="grid grid-cols-2 gap-3">
-                                     {RECOMMENDED_PRODUCTS.map(prod => (
-                                         <div key={prod.id} className="bg-white rounded-xl border border-pd-lightest overflow-hidden hover:border-pd-teal hover:shadow-md transition-all group cursor-pointer" onClick={() => addToCart(prod)}>
-                                             <div className="h-24 bg-pd-lightest overflow-hidden">
-                                                 <img src={prod.image} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                     <div>
+                         <h4 className="font-impact text-lg text-pd-darkblue uppercase mb-3 flex items-center gap-2">
+                             <Sparkles size={16} className="text-pd-yellow" /> Recommended
+                         </h4>
+                         <div className="grid grid-cols-2 gap-3">
+                             {RECOMMENDED_PRODUCTS.map(prod => (
+                                 <div key={prod.id} className="bg-white rounded-xl border border-pd-lightest overflow-hidden hover:border-pd-teal hover:shadow-md transition-all group cursor-pointer" onClick={() => handleQuickAdd(prod)}>
+                                     <div className="h-24 bg-pd-lightest overflow-hidden">
+                                         <img src={prod.image} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                     </div>
+                                     <div className="p-3">
+                                         <p className="font-bold text-pd-darkblue text-xs leading-tight line-clamp-2 mb-1">{prod.name}</p>
+                                         <div className="flex justify-between items-center">
+                                             <span className="text-pd-teal font-impact text-sm">${prod.price}</span>
+                                             <div className="w-6 h-6 bg-pd-lightest rounded-full flex items-center justify-center text-pd-darkblue group-hover:bg-pd-darkblue group-hover:text-white transition-colors">
+                                                 <Plus size={12} strokeWidth={3} />
                                              </div>
-                                             <div className="p-3">
-                                                 <p className="font-bold text-pd-darkblue text-xs leading-tight line-clamp-2 mb-1">{prod.name}</p>
-                                                 <div className="flex justify-between items-center">
-                                                     <span className="text-pd-teal font-impact text-sm">${prod.price}</span>
-                                                     <div className="w-6 h-6 bg-pd-lightest rounded-full flex items-center justify-center text-pd-darkblue group-hover:bg-pd-darkblue group-hover:text-white transition-colors">
-                                                         <Plus size={12} strokeWidth={3} />
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     ))}
-                                 </div>
-                             </div>
-
-                             {/* Cart Summary (if items) */}
-                             {cart.length > 0 && (
-                                 <div className="bg-white rounded-xl border-2 border-pd-lightest p-4">
-                                     <h4 className="font-impact text-lg text-pd-darkblue uppercase mb-3 border-b border-pd-lightest pb-2">Your Cart</h4>
-                                     <div className="space-y-3">
-                                         {cart.map((item) => (
-                                             <div key={item.product.id} className="flex justify-between items-center">
-                                                 <div className="flex items-center gap-2">
-                                                     <div className="w-5 h-5 bg-pd-lightest rounded flex items-center justify-center text-xs font-bold text-pd-darkblue">{item.qty}x</div>
-                                                     <span className="text-sm font-medium text-pd-slate truncate w-32">{item.product.name}</span>
-                                                 </div>
-                                                 <div className="flex items-center gap-3">
-                                                     <span className="font-bold text-pd-darkblue text-sm">${(item.product.price * item.qty).toFixed(2)}</span>
-                                                     <button onClick={() => removeFromCart(item.product.id)} className="text-pd-softgrey hover:text-rose-500"><Trash2 size={14} /></button>
-                                                 </div>
-                                             </div>
-                                         ))}
-                                         <div className="pt-2 border-t border-pd-lightest flex justify-between items-end">
-                                             <span className="text-xs font-bold text-pd-softgrey uppercase tracking-wider">Total</span>
-                                             <span className="font-impact text-xl text-pd-teal">${cartTotal.toFixed(2)}</span>
                                          </div>
                                      </div>
-                                     <Button variant="primary" className="w-full mt-4 !py-3" onClick={() => setShopView('checkout')}>
-                                         Proceed to Checkout
-                                     </Button>
                                  </div>
-                             )}
+                             ))}
                          </div>
-                      </>
-                  ) : (
-                      /* CHECKOUT VIEW */
-                      <div className="flex flex-col h-full bg-white">
-                          {paymentSuccess ? (
-                              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 animate-in zoom-in">
-                                  <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4 shadow-lg border-4 border-white">
-                                      <CheckCircle size={40} />
-                                  </div>
-                                  <h3 className="font-impact text-3xl text-pd-darkblue uppercase">Order Confirmed!</h3>
-                                  <p className="text-pd-slate text-sm mt-2">Your gear is on the way.</p>
-                              </div>
-                          ) : (
-                              <>
-                                  <div className="p-4 border-b border-pd-lightest flex items-center gap-2">
-                                      <button onClick={() => setShopView('browse')} className="p-1 hover:bg-pd-lightest rounded-lg"><X size={20} /></button>
-                                      <h3 className="font-impact text-xl text-pd-darkblue uppercase">Secure Checkout</h3>
-                                  </div>
-                                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                                      <div className="space-y-1 text-center">
-                                          <p className="text-pd-softgrey text-xs font-bold uppercase tracking-wider">Amount Due</p>
-                                          <p className="font-impact text-4xl text-pd-darkblue">${cartTotal.toFixed(2)}</p>
-                                      </div>
+                     </div>
 
-                                      <div className="space-y-3">
-                                          <label className="text-xs font-bold text-pd-slate uppercase tracking-wider block">Card Information</label>
-                                          <div className="border-2 border-pd-lightest rounded-xl overflow-hidden focus-within:border-pd-teal transition-colors">
-                                              <div className="flex items-center p-3 border-b border-pd-lightest bg-pd-lightest/10">
-                                                  <CreditCard size={18} className="text-pd-softgrey mr-3" />
-                                                  <input placeholder="Card number" className="flex-1 bg-transparent outline-none text-pd-darkblue font-medium text-sm" />
-                                              </div>
-                                              <div className="flex divide-x-2 divide-pd-lightest bg-pd-lightest/10">
-                                                  <input placeholder="MM / YY" className="w-1/2 p-3 bg-transparent outline-none text-pd-darkblue font-medium text-sm text-center" />
-                                                  <input placeholder="CVC" className="w-1/2 p-3 bg-transparent outline-none text-pd-darkblue font-medium text-sm text-center" />
-                                              </div>
-                                          </div>
-                                          <input placeholder="ZIP Code" className="w-full p-3 border-2 border-pd-lightest rounded-xl outline-none focus:border-pd-teal text-pd-darkblue font-medium text-sm bg-pd-lightest/10" />
-                                      </div>
-                                      
-                                      <div className="flex items-center justify-center gap-2 text-[10px] text-pd-softgrey font-bold uppercase tracking-wider">
-                                          <Lock size={10} /> 128-bit SSL Encrypted Payment
-                                      </div>
-                                  </div>
-                                  <div className="p-4 border-t border-pd-lightest">
-                                      <Button variant="primary" className="w-full !py-3 text-lg shadow-lg" onClick={handleCheckout} disabled={isPaying}>
-                                          {isPaying ? 'Processing...' : `Pay $${cartTotal.toFixed(2)}`}
-                                      </Button>
-                                  </div>
-                              </>
-                          )}
-                      </div>
-                  )}
+                     {cartItems.length > 0 && (
+                         <div className="bg-white rounded-xl border-2 border-pd-lightest p-4">
+                             <h4 className="font-impact text-lg text-pd-darkblue uppercase mb-3 border-b border-pd-lightest pb-2">Your Cart</h4>
+                             <div className="space-y-3">
+                                 {cartItems.map((item) => (
+                                     <div key={item.id} className="flex justify-between items-center">
+                                         <div className="flex items-center gap-2">
+                                             <div className="w-5 h-5 bg-pd-lightest rounded flex items-center justify-center text-xs font-bold text-pd-darkblue">{item.quantity}x</div>
+                                             <span className="text-sm font-medium text-pd-slate truncate w-32">{item.title}</span>
+                                         </div>
+                                         <span className="font-bold text-pd-darkblue text-sm">${(item.finalPrice * item.quantity).toFixed(2)}</span>
+                                     </div>
+                                 ))}
+                                 <div className="pt-2 border-t border-pd-lightest flex justify-between items-end">
+                                     <span className="text-xs font-bold text-pd-softgrey uppercase tracking-wider">Total</span>
+                                     <span className="font-impact text-xl text-pd-teal">${cartTotal.toFixed(2)}</span>
+                                 </div>
+                             </div>
+                             <Button variant="primary" className="w-full mt-4 !py-3" onClick={openGlobalCart}>
+                                 Checkout Now
+                             </Button>
+                         </div>
+                     )}
+                 </div>
               </div>
           )}
 
-          {/* 3. COACH TAB (Chat Only) */}
+          {/* 3. COACH TAB */}
           {activeTab === 'coach' && (
               <div className="flex flex-col h-full">
-                  {/* Mock Thread List (Single Active Thread for now) */}
                   <div className="p-3 border-b border-pd-lightest bg-white flex items-center gap-3">
                        <div className="relative">
                            <img src={conversations[0].coachAvatar} alt="Coach" className="w-10 h-10 rounded-full object-cover border border-pd-lightest" />

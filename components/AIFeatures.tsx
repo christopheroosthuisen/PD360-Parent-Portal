@@ -2,9 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, ChevronRight, Loader, Image as ImageIcon, Upload, X, Sun, Moon, Tv, RefreshCw, LayoutTemplate } from 'lucide-react';
 import { Button, Card, ProgressBar } from './UI';
-import { DogData, DailyPlan } from '../types';
+import { DogData, DailyPlan, TrainingPlan } from '../types';
 import { getCurrentGrade, SKILL_TREE, TRAINER_NOTES } from '../constants';
 import { generateContent } from '../services/gemini';
+import { DataService } from '../services/dataService';
 
 // Helper to convert file to base64
 const fileToBase64 = (file: File): Promise<string> => {
@@ -270,21 +271,18 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
   const availableSkills = SKILL_TREE.flatMap(cat => cat.skills.map(s => s.name));
 
   useEffect(() => {
-    const savedPlan = localStorage.getItem(`pd360_homework_${dogData.id}`);
-    if (savedPlan) {
-      try {
-        setPlan(JSON.parse(savedPlan));
-      } catch (e) {
-        console.error("Failed to parse saved plan", e);
-      }
-    }
+    const loadPlan = async () => {
+        try {
+            const savedPlan = await DataService.fetchTrainingPlan(dogData.id);
+            if (savedPlan) {
+                setPlan(savedPlan.weekSchedule);
+            }
+        } catch (error) {
+            console.error("Failed to fetch plan", error);
+        }
+    };
+    loadPlan();
   }, [dogData.id]);
-
-  useEffect(() => {
-    if (plan) {
-      localStorage.setItem(`pd360_homework_${dogData.id}`, JSON.stringify(plan));
-    }
-  }, [plan, dogData.id]);
 
   useEffect(() => {
     let interval: any;
@@ -301,6 +299,16 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     }
     return () => clearInterval(interval);
   }, [isLoading]);
+
+  const savePlanToDB = async (dailyPlans: DailyPlan[]) => {
+      const trainingPlan: TrainingPlan = {
+          id: `plan_${Date.now()}`,
+          dogId: dogData.id,
+          createdAt: new Date().toISOString(),
+          weekSchedule: dailyPlans
+      };
+      await DataService.saveTrainingPlan(trainingPlan);
+  };
 
   const generatePlan = async () => {
     setIsLoading(true);
@@ -335,6 +343,7 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
       const cleanJson = responseText.replace(/```json\n?|\n?```/g, '').trim();
       const parsedPlan = JSON.parse(cleanJson);
       setPlan(parsedPlan);
+      await savePlanToDB(parsedPlan);
     } catch (e) {
       console.error("Failed to generate/parse plan", e);
     } finally {
@@ -370,6 +379,7 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
        const newPlan = [...plan];
        newPlan[dayIndex] = newDay;
        setPlan(newPlan);
+       await savePlanToDB(newPlan);
     } catch (e) {
        console.error("Failed to regenerate day", e);
     } finally {
@@ -377,9 +387,9 @@ export const TrainingPlanGenerator: React.FC<{ dogData: DogData }> = ({ dogData 
     }
   };
 
-  const clearPlan = () => {
+  const clearPlan = async () => {
      setPlan(null);
-     localStorage.removeItem(`pd360_homework_${dogData.id}`);
+     // In a real app we might want to delete from DB, but for now we just clear local state and maybe overwrite with empty
   };
 
   const triggerIzzyDetail = (exercise: string) => {

@@ -1,8 +1,10 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { SKILL_TREE, PHASES, BEHAVIOR_TIPS } from '../constants';
+import { PHASES, BEHAVIOR_TIPS } from '../constants';
 import { PD360PhaseBar, Card, getLevelColor, Button, CategoryCard, SkillVisual } from './UI';
-import { Search, LayoutGrid, List, ChevronDown, Check, Calculator, SlidersHorizontal, X, ExternalLink, ArrowUpDown, ChevronUp, MessageCircle, CalendarPlus, ArrowUpCircle, ArrowDownCircle, Info, ChevronRight, Dumbbell, Sparkles, Users, Briefcase, ShieldAlert, Brain, Stethoscope, AlertTriangle, ArrowLeft } from 'lucide-react';
-import { DogData } from '../types';
+import { Search, LayoutGrid, List, ChevronDown, Check, Calculator, SlidersHorizontal, X, ExternalLink, ArrowUpDown, ChevronUp, MessageCircle, CalendarPlus, ArrowUpCircle, ArrowDownCircle, Info, ChevronRight, Dumbbell, Sparkles, Users, Briefcase, ShieldAlert, Brain, Stethoscope, AlertTriangle, ArrowLeft, Loader } from 'lucide-react';
+import { DogData, SkillCategory } from '../types';
+import { DataService } from '../services/dataService';
 
 // --- Helper to map category names to icons ---
 const getCategoryIcon = (categoryName: string) => {
@@ -158,6 +160,9 @@ interface SkillsHubProps {
 }
 
 export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
+  const [skillTree, setSkillTree] = useState<SkillCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [activeView, setActiveView] = useState<'categories' | 'detail'>('categories');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -170,6 +175,24 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(true);
+
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedLevels, setSelectedLevels] = useState<number[]>([1, 2, 3, 4, 5]);
+
+  useEffect(() => {
+    const fetchSkills = async () => {
+        try {
+            const data = await DataService.fetchCurriculum();
+            setSkillTree(data);
+            setSelectedCategories(data.map(c => c.category));
+        } catch (error) {
+            console.error("Failed to load skills", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchSkills();
+  }, []);
 
   useEffect(() => {
     const mainContent = document.querySelector('main');
@@ -216,9 +239,9 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
     } else if (!activeCategory && searchQuery.trim().length === 0) {
       setActiveView('categories');
     }
-  }, [searchQuery]);
+  }, [searchQuery, activeCategory]);
 
-  const allCategories = useMemo(() => Array.from(new Set(SKILL_TREE.map(c => c.category))).sort(), []);
+  const allCategories = useMemo(() => Array.from(new Set(skillTree.map(c => c.category))).sort(), [skillTree]);
   const categoryOptions = allCategories.map(c => ({ value: c, label: c }));
   
   const levelOptions = [
@@ -229,16 +252,13 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
     { value: 5, label: 'Level 5 (Maint./Never)' },
   ];
 
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(allCategories);
-  const [selectedLevels, setSelectedLevels] = useState<number[]>([1, 2, 3, 4, 5]);
-
   const scores = useMemo(() => {
     let current = 0;
     let max = 0;
     let count = 0;
     let mastered = 0;
 
-    SKILL_TREE.forEach(cat => {
+    skillTree.forEach(cat => {
       cat.skills.forEach(skill => {
         current += skill.level;
         max += 5;
@@ -247,15 +267,15 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
       });
     });
 
-    return { current, max, count, mastered, percentage: Math.round((current / max) * 100) };
-  }, []);
+    return { current, max, count, mastered, percentage: max > 0 ? Math.round((current / max) * 100) : 0 };
+  }, [skillTree]);
 
   // Calculate category stats for the Grid View
   const categoryStats = useMemo(() => {
-    return SKILL_TREE.map(cat => {
+    return skillTree.map(cat => {
       const totalLevels = cat.skills.reduce((acc, s) => acc + s.level, 0);
       const maxLevels = cat.skills.length * 5;
-      const percent = Math.round((totalLevels / maxLevels) * 100);
+      const percent = maxLevels > 0 ? Math.round((totalLevels / maxLevels) * 100) : 0;
       const masteredCount = cat.skills.filter(s => s.level === 5).length;
       
       return {
@@ -267,10 +287,10 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
         percent
       };
     }).sort((a, b) => a.category.localeCompare(b.category));
-  }, []);
+  }, [skillTree]);
 
   const filteredData = useMemo(() => {
-    const flatSkills = SKILL_TREE.flatMap(cat => 
+    const flatSkills = skillTree.flatMap(cat => 
       cat.skills.map(skill => ({
         ...skill,
         category: cat.category,
@@ -296,7 +316,7 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
         default: return 0;
       }
     });
-  }, [searchQuery, selectedCategories, selectedLevels, sortOption, activeCategory]);
+  }, [searchQuery, selectedCategories, selectedLevels, sortOption, activeCategory, skillTree]);
 
   const groupedData = useMemo(() => {
     const groups: Record<string, typeof filteredData> = {};
@@ -323,6 +343,10 @@ export const SkillsHub: React.FC<SkillsHubProps> = ({ dogData }) => {
     setActiveView('categories');
     setSearchQuery('');
   };
+
+  if (loading) {
+      return <div className="flex items-center justify-center min-h-[400px]"><Loader className="animate-spin text-pd-teal" size={40} /></div>;
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative min-h-screen">

@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pack } from '../types';
+import { DataService } from '../services/dataService';
 import { Card, Button, Modal } from './UI';
 import { 
   Tent, 
@@ -13,70 +14,14 @@ import {
   ChevronRight,
   CheckCircle2,
   ArrowLeft,
-  Settings
+  Settings,
+  Loader
 } from 'lucide-react';
-
-// --- Mock Data for Packs ---
-const MOCK_PACKS: Pack[] = [
-  {
-    id: 'p1',
-    name: 'Scottsdale Retrievers',
-    category: 'Breed',
-    image: 'https://images.unsplash.com/photo-1558929996-da64ba858315?auto=format&fit=crop&w=400&q=80',
-    membersCount: 142,
-    location: 'Scottsdale, AZ',
-    isPrivate: false,
-    isMember: true,
-    description: 'A group for Goldens, Labs, and doodles to meet up for play dates and swim sessions.',
-    nextEvent: 'Sunday Swim @ 10am'
-  },
-  {
-    id: 'p2',
-    name: 'Agility All-Stars',
-    category: 'Training',
-    image: 'https://images.unsplash.com/photo-1535008652995-e95986556e32?auto=format&fit=crop&w=400&q=80',
-    membersCount: 56,
-    location: 'Phoenix Campus',
-    isPrivate: true,
-    isMember: false,
-    description: 'Competitive agility team. Focus on weave poles, A-frame, and advanced handling.',
-  },
-  {
-    id: 'p3',
-    name: 'Puppy Class of \'24',
-    category: 'Training',
-    image: 'https://images.unsplash.com/photo-1591160690555-5debfba600f2?auto=format&fit=crop&w=400&q=80',
-    membersCount: 28,
-    isPrivate: true,
-    isMember: true,
-    description: 'Support group for all puppy parents graduating in 2024. Share wins and potty training woes.',
-  },
-  {
-    id: 'p4',
-    name: 'Hiking Hounds',
-    category: 'Interest',
-    image: 'https://images.unsplash.com/photo-1551651767-d50727b54f4b?auto=format&fit=crop&w=400&q=80',
-    membersCount: 315,
-    location: 'Arizona',
-    isPrivate: false,
-    isMember: false,
-    description: 'Exploring the best trails in AZ. Leashes required. Rattlesnake avoidance training recommended.',
-  },
-  {
-    id: 'p5',
-    name: 'Frenchie Friends',
-    category: 'Breed',
-    image: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=400&q=80',
-    membersCount: 89,
-    location: 'Tempe, AZ',
-    isPrivate: false,
-    isMember: false,
-    description: 'Snorts, snacks, and short walks. The official French Bulldog club of Tempe.',
-  }
-];
 
 export const Packs: React.FC = () => {
   const [view, setView] = useState<'discover' | 'detail'>('discover');
+  const [packs, setPacks] = useState<Pack[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedPack, setSelectedPack] = useState<Pack | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -85,8 +30,17 @@ export const Packs: React.FC = () => {
   const [newPackName, setNewPackName] = useState('');
   const [newPackCategory, setNewPackCategory] = useState('Interest');
 
-  const myPacks = MOCK_PACKS.filter(p => p.isMember);
-  const discoverPacks = MOCK_PACKS.filter(p => 
+  useEffect(() => {
+      const loadPacks = async () => {
+          const data = await DataService.fetchPacks();
+          setPacks(data);
+          setLoading(false);
+      };
+      loadPacks();
+  }, []);
+
+  const myPacks = packs.filter(p => p.isMember);
+  const discoverPacks = packs.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -96,19 +50,60 @@ export const Packs: React.FC = () => {
     setView('detail');
   };
 
-  const handleJoinToggle = (packId: string) => {
-    // In a real app, this would make an API call
-    // For now, we just toggle local state in the mock (visually)
-    if (selectedPack && selectedPack.id === packId) {
-        setSelectedPack({ ...selectedPack, isMember: !selectedPack.isMember });
+  const handleJoinToggle = async (packId: string) => {
+    if (!selectedPack) return;
+    
+    // Optimistic UI Update
+    const isJoining = !selectedPack.isMember;
+    
+    setPacks(prev => prev.map(p => {
+        if (p.id === packId) {
+            return {
+                ...p,
+                isMember: isJoining,
+                membersCount: isJoining ? p.membersCount + 1 : Math.max(0, p.membersCount - 1)
+            };
+        }
+        return p;
+    }));
+    
+    // Update local selection to reflect change immediately
+    setSelectedPack(prev => prev ? {
+        ...prev,
+        isMember: isJoining,
+        membersCount: isJoining ? prev.membersCount + 1 : Math.max(0, prev.membersCount - 1)
+    } : null);
+
+    // API Call
+    if (isJoining) {
+        await DataService.joinPack(packId);
+    } else {
+        await DataService.leavePack(packId);
     }
   };
 
-  const handleCreatePack = () => {
+  const handleCreatePack = async () => {
       setIsCreateModalOpen(false);
-      // Logic to create pack would go here
+      const newPack: Pack = {
+          id: `pack_${Date.now()}`,
+          name: newPackName,
+          category: newPackCategory as any,
+          image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=400&q=80',
+          membersCount: 1,
+          isMember: true,
+          isPrivate: false,
+          description: 'A newly created pack.',
+          location: 'Virtual'
+      };
+      
+      await DataService.createPack(newPack);
+      setPacks(prev => [newPack, ...prev]);
       setNewPackName('');
   };
+
+  if (loading) {
+      return <div className="flex justify-center items-center h-64"><Loader className="animate-spin text-pd-teal" size={40} /></div>;
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

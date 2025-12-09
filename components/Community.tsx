@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { DogData, CommunityPost, CommunityEvent, LeaderboardEntry, Reaction, Badge } from '../types';
-import { MOCK_POSTS, MOCK_EVENTS, LEADERBOARD_DATA } from '../constants';
+import { DataService } from '../services/dataService';
 import { Card, Button, Modal } from './UI';
 import { 
   MessageSquare, 
@@ -24,47 +25,24 @@ import {
   ChevronDown,
   Info,
   User,
-  Award
+  Award,
+  Loader
 } from 'lucide-react';
 
 interface CommunityProps {
   dogData: DogData;
 }
 
-// --- Mock Enhanced Data (Local to component for now) ---
-
-const MOCK_BADGES: Record<string, Badge> = {
-    verified: { id: 'b1', name: 'Verified Owner', icon: '✓', color: 'text-blue-500', description: 'Identity Verified' },
-    top_contributor: { id: 'b2', name: 'Top Contributor', icon: '🌟', color: 'text-yellow-500', description: 'Highly Active' },
-    agility_champ: { id: 'b3', name: 'Agility Champ', icon: '🏃', color: 'text-emerald-500', description: 'Competition Winner' },
-    puppy_grad: { id: 'b4', name: 'Puppy Graduate', icon: '🎓', color: 'text-purple-500', description: 'Completed Puppy 101' }
-};
-
-// Transform existing posts to include new fields
-const ENHANCED_POSTS: CommunityPost[] = MOCK_POSTS.map(post => ({
-    ...post,
-    authorBadges: post.authorName === 'Mike T.' ? [MOCK_BADGES.verified, MOCK_BADGES.top_contributor] : 
-                  post.authorName.includes('Sarah') ? [MOCK_BADGES.puppy_grad] : [],
-    reactions: [
-        { type: 'high-five', count: Math.floor(Math.random() * 20), userReacted: post.likedByMe || false },
-        { type: 'sniff', count: Math.floor(Math.random() * 10), userReacted: false },
-        { type: 'howl', count: Math.floor(Math.random() * 5), userReacted: false }
-    ]
-}));
-
-// Transform Leaderboard & Add mock filtering fields
-const ENHANCED_LEADERBOARD: (LeaderboardEntry & { grade?: string, pack?: string, age?: number })[] = LEADERBOARD_DATA.map((entry, i) => ({
-    ...entry,
-    badges: entry.rank === 1 ? [MOCK_BADGES.agility_champ] : [],
-    breed: entry.dogName === 'Barnaby' ? 'Golden Retriever' : entry.dogName === 'Luna' ? 'Border Collie' : entry.dogName === 'Maximus' ? 'German Shepherd' : 'Mixed Breed',
-    location: entry.dogName === 'Barnaby' || entry.dogName === 'Bella' ? 'Scottsdale, AZ' : 'Phoenix, AZ',
-    grade: entry.score > 800 ? 'Dogtorate' : entry.score > 500 ? 'Masters' : entry.score > 300 ? 'College' : 'Elementary',
-    pack: i % 2 === 0 ? 'Agility All-Stars' : 'Hiking Hounds',
-    age: 2 + i // Mock ages
-}));
+// Mock badges needed for post creation (in a real app, fetched from user profile)
+const VERIFIED_BADGE: Badge = { id: 'b1', name: 'Verified Owner', icon: '✓', color: 'text-blue-500', description: 'Identity Verified' };
 
 export const Community: React.FC<CommunityProps> = ({ dogData }) => {
-  const [posts, setPosts] = useState<CommunityPost[]>(ENHANCED_POSTS);
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [events, setEvents] = useState<CommunityEvent[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Interaction State
   const [newPostContent, setNewPostContent] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<CommunityEvent | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -80,7 +58,28 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
      age: 'All'
   });
 
-  const handleReaction = (postId: string, reactionType: Reaction['type']) => {
+  useEffect(() => {
+      const fetchData = async () => {
+          try {
+              const [fetchedPosts, fetchedEvents, fetchedLeaderboard] = await Promise.all([
+                  DataService.fetchCommunityFeed(),
+                  DataService.fetchEvents(),
+                  DataService.fetchLeaderboard()
+              ]);
+              setPosts(fetchedPosts);
+              setEvents(fetchedEvents);
+              setLeaderboard(fetchedLeaderboard);
+          } catch (err) {
+              console.error("Failed to load community data", err);
+          } finally {
+              setLoading(false);
+          }
+      };
+      fetchData();
+  }, []);
+
+  const handleReaction = async (postId: string, reactionType: Reaction['type']) => {
+    // Optimistic Update
     setPosts(prev => prev.map(post => {
       if (post.id === postId) {
         const existingReaction = post.reactions?.find(r => r.type === reactionType);
@@ -99,38 +98,49 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
       }
       return post;
     }));
+
+    await DataService.addReaction(postId, reactionType);
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!newPostContent.trim()) return;
     
     const newPost: CommunityPost = {
-      id: Date.now().toString(),
+      id: `post_${Date.now()}`,
+      authorId: dogData.id,
       authorName: 'You & ' + dogData.name,
       authorAvatar: dogData.avatar,
-      authorBadges: [MOCK_BADGES.verified],
+      authorBadges: [VERIFIED_BADGE],
       timeAgo: 'Just now',
       content: newPostContent,
-      likes: 0,
+      createdAt: new Date().toISOString(),
       reactions: [
           { type: 'high-five', count: 0, userReacted: false },
           { type: 'sniff', count: 0, userReacted: false },
           { type: 'howl', count: 0, userReacted: false }
       ],
-      comments: 0,
-      likedByMe: false
+      commentCount: 0
     };
 
+    // Optimistic Update
     setPosts([newPost, ...posts]);
     setNewPostContent('');
+    
+    // API Call
+    await DataService.createPost(newPost);
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
+    if (!selectedEvent) return;
     setIsRegistering(true);
-    setTimeout(() => {
-       setIsRegistering(false);
-       setRegistrationSuccess(true);
-    }, 1500);
+    
+    await DataService.registerForEvent(selectedEvent.id);
+    
+    // Update local state
+    setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, isRegistered: true, attendees: e.attendees + 1 } : e));
+    
+    setIsRegistering(false);
+    setRegistrationSuccess(true);
   };
 
   const closeEventModal = () => {
@@ -139,7 +149,7 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
   };
 
   const filteredLeaderboard = useMemo(() => {
-      return ENHANCED_LEADERBOARD.filter(e => {
+      return leaderboard.filter(e => {
          if (leaderboardFilters.location !== 'All' && !e.location?.includes(leaderboardFilters.location)) return false;
          if (leaderboardFilters.grade !== 'All' && e.grade !== leaderboardFilters.grade) return false;
          if (leaderboardFilters.pack !== 'All' && e.pack !== leaderboardFilters.pack) return false;
@@ -152,15 +162,15 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
          }
          return true;
       }).sort((a, b) => b.score - a.score);
-  }, [leaderboardFilters]);
+  }, [leaderboard, leaderboardFilters]);
 
   // Unique values for filters
-  const uniqueLocations = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.location?.split(',')[0] || 'Unknown'))), []);
-  const uniqueGrades = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.grade || 'Unknown'))), []);
-  const uniquePacks = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.pack || 'None'))), []);
-  const uniqueBreeds = useMemo(() => Array.from(new Set(ENHANCED_LEADERBOARD.map(e => e.breed || 'Mixed'))), []);
+  const uniqueLocations = useMemo(() => Array.from(new Set(leaderboard.map(e => e.location?.split(',')[0] || 'Unknown'))), [leaderboard]);
+  const uniqueGrades = useMemo(() => Array.from(new Set(leaderboard.map(e => e.grade || 'Unknown'))), [leaderboard]);
+  const uniquePacks = useMemo(() => Array.from(new Set(leaderboard.map(e => e.pack || 'None'))), [leaderboard]);
+  const uniqueBreeds = useMemo(() => Array.from(new Set(leaderboard.map(e => e.breed || 'Mixed'))), [leaderboard]);
 
-  const LeaderboardRow: React.FC<{ entry: typeof ENHANCED_LEADERBOARD[0], index: number, expanded?: boolean }> = ({ entry, index, expanded = false }) => (
+  const LeaderboardRow: React.FC<{ entry: LeaderboardEntry, index: number, expanded?: boolean }> = ({ entry, index, expanded = false }) => (
     <div 
       className={`flex items-center gap-4 p-3 rounded-xl border transition-colors ${
         entry.dogName === dogData.name 
@@ -208,6 +218,10 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
       </div>
     </div>
   );
+
+  if (loading) {
+      return <div className="flex justify-center items-center h-64"><Loader className="animate-spin text-pd-teal" size={40} /></div>;
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -271,17 +285,9 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
 
                 <p className="text-pd-slate leading-relaxed font-medium mb-4 whitespace-pre-wrap">{post.content}</p>
                 
-                {post.image && (
+                {post.mediaUrl && (
                   <div className="mb-4 rounded-2xl overflow-hidden">
-                    <img src={post.image} alt="Post content" className="w-full h-auto object-cover" />
-                  </div>
-                )}
-
-                {post.tags && (
-                  <div className="flex gap-2 mb-4">
-                    {post.tags.map(tag => (
-                      <span key={tag} className="text-xs font-bold text-pd-teal bg-pd-lightest/50 px-3 py-1 rounded-full uppercase tracking-wide">#{tag}</span>
-                    ))}
+                    <img src={post.mediaUrl} alt="Post content" className="w-full h-auto object-cover" />
                   </div>
                 )}
 
@@ -317,7 +323,7 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
                    </div>
                    
                    <button className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-pd-softgrey hover:text-pd-darkblue transition-colors">
-                      <MessageSquare size={20} /> {post.comments}
+                      <MessageSquare size={20} /> {post.commentCount}
                    </button>
                 </div>
               </Card>
@@ -398,8 +404,8 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
             </div>
 
             <div className="space-y-4">
-              {MOCK_EVENTS.map(event => (
-                <div key={event.id} className="p-4 bg-pd-lightest/30 rounded-2xl border border-pd-lightest hover:border-pd-teal transition-colors group">
+              {events.map(event => (
+                <div key={event.id} className={`p-4 rounded-2xl border transition-colors group ${event.isRegistered ? 'bg-emerald-50 border-emerald-200' : 'bg-pd-lightest/30 border-pd-lightest hover:border-pd-teal'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-bold bg-white text-pd-darkblue px-2 py-1 rounded-md border border-pd-lightest uppercase tracking-wide">
                       {event.type}
@@ -419,9 +425,15 @@ export const Community: React.FC<CommunityProps> = ({ dogData }) => {
                     </div>
                   </div>
 
-                  <Button variant="secondary" className="w-full mt-4 !py-2 !text-xs" onClick={() => setSelectedEvent(event)}>
-                    {event.price ? `Ticket: $${event.price}` : "RSVP Now"}
-                  </Button>
+                  {event.isRegistered ? (
+                      <div className="mt-4 flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider bg-white/50 p-2 rounded-lg justify-center">
+                          <CheckCircle size={16} /> Registered
+                      </div>
+                  ) : (
+                      <Button variant="secondary" className="w-full mt-4 !py-2 !text-xs" onClick={() => setSelectedEvent(event)}>
+                        {event.price ? `Ticket: $${event.price}` : "RSVP Now"}
+                      </Button>
+                  )}
                 </div>
               ))}
             </div>

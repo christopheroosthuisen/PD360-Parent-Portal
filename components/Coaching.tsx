@@ -1,18 +1,18 @@
 
-
-
 import React, { useState } from 'react';
 import { Coach } from '../types';
 import { MOCK_COACHES } from '../constants';
 import { Card, Button } from './UI';
 import { Star, MapPin, Calendar, Video, Users, GraduationCap, CheckCircle, X } from 'lucide-react';
+import { DataService } from '../services/dataService';
 
 export const Coaching: React.FC = () => {
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [bookingStep, setBookingStep] = useState<'profile' | 'schedule' | 'confirm'>('profile');
   const [sessionType, setSessionType] = useState<'virtual' | 'in-person'>('virtual');
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isBooking, setIsBooking] = useState(false);
 
   const filteredCoaches = MOCK_COACHES.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -24,16 +24,25 @@ export const Coaching: React.FC = () => {
     setSelectedCoach(coach);
     setBookingStep('schedule');
     setSessionType('virtual'); // Default
-    setSelectedSlot(null);
+    setSelectedSlotId(null);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
+    if (!selectedCoach || !selectedSlotId) return;
+    setIsBooking(true);
+    await DataService.bookCoachingSession('user_1', selectedCoach.id, selectedSlotId, sessionType);
+    setIsBooking(false);
     setBookingStep('confirm');
   };
 
   const resetBooking = () => {
     setSelectedCoach(null);
     setBookingStep('profile');
+  };
+
+  const formatSlotTime = (dateStr: string) => {
+      const d = new Date(dateStr);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ` (${d.toLocaleDateString()})`;
   };
 
   // --- Booking Modal ---
@@ -96,13 +105,15 @@ export const Coaching: React.FC = () => {
                             <div>
                                <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-2">Select Time</label>
                                <div className="grid grid-cols-2 gap-2">
-                                  {selectedCoach.availableSlots.map((slot) => (
+                                  {/* In a real app, slots would come from DataService based on availability */}
+                                  {/* Using a mock array here consistent with previous design but mapping to IDs */}
+                                  {['10:00 AM', '2:00 PM'].map((time, idx) => (
                                     <button
-                                       key={slot}
-                                       onClick={() => setSelectedSlot(slot)}
-                                       className={`p-3 rounded-xl text-sm font-bold border-2 transition-all ${selectedSlot === slot ? 'bg-pd-darkblue text-white border-pd-darkblue' : 'bg-white border-pd-lightest text-pd-darkblue hover:border-pd-teal'}`}
+                                       key={idx}
+                                       onClick={() => setSelectedSlotId(`slot_${selectedCoach.id}_${idx}`)}
+                                       className={`p-3 rounded-xl text-sm font-bold border-2 transition-all ${selectedSlotId === `slot_${selectedCoach.id}_${idx}` ? 'bg-pd-darkblue text-white border-pd-darkblue' : 'bg-white border-pd-lightest text-pd-darkblue hover:border-pd-teal'}`}
                                     >
-                                       {slot}
+                                       {time}
                                     </button>
                                   ))}
                                </div>
@@ -137,7 +148,9 @@ export const Coaching: React.FC = () => {
 
                 <div className="p-6 border-t border-pd-lightest bg-pd-lightest/20 flex justify-end gap-3">
                    <Button variant="ghost" onClick={resetBooking}>Cancel</Button>
-                   <Button variant="primary" disabled={!selectedSlot} onClick={handleConfirmBooking}>Confirm Booking</Button>
+                   <Button variant="primary" disabled={!selectedSlotId || isBooking} onClick={handleConfirmBooking}>
+                       {isBooking ? 'Confirming...' : 'Confirm Booking'}
+                   </Button>
                 </div>
              </div>
            )}
@@ -149,7 +162,7 @@ export const Coaching: React.FC = () => {
                  </div>
                  <h2 className="font-impact text-4xl text-pd-darkblue uppercase mb-2">Booking Confirmed!</h2>
                  <p className="text-pd-slate text-lg mb-8 max-w-md">
-                    You are scheduled with {selectedCoach.name} for a {sessionType} session on <span className="font-bold text-pd-darkblue">{selectedSlot}</span>.
+                    You are scheduled with {selectedCoach.name} for a {sessionType} session.
                  </p>
                  <Button variant="primary" onClick={resetBooking}>Return to Directory</Button>
               </div>

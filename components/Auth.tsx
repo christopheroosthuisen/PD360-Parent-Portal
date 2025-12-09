@@ -1,11 +1,13 @@
+
 import React, { useState } from 'react';
 import { Button, Card } from './UI';
-import { Mail, Lock, User, ArrowRight, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Logo } from './Logo';
+import { Footer } from './Footer';
 
 interface AuthProps {
-  view: 'login' | 'signup' | 'forgot-password';
-  onNavigate: (view: 'login' | 'signup' | 'forgot-password') => void;
+  view: 'login' | 'signup' | 'forgot-password' | 'privacy' | 'terms';
+  onNavigate: (view: string) => void;
   onLogin: () => void;
 }
 
@@ -18,10 +20,17 @@ export const Auth: React.FC<AuthProps> = ({ view, onNavigate, onLogin }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (view === 'signup' && !agreed) {
+        setError('You must agree to the Terms & Privacy Policy to continue.');
+        return;
+    }
+
     setIsLoading(true);
 
     // Simulate API call
@@ -47,7 +56,7 @@ export const Auth: React.FC<AuthProps> = ({ view, onNavigate, onLogin }) => {
       <div className="absolute top-0 right-0 w-96 h-96 bg-pd-teal rounded-full opacity-10 -mr-20 -mt-20 blur-3xl animate-pulse"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-pd-yellow rounded-full opacity-5 -ml-20 -mb-20 blur-3xl"></div>
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md flex-1 flex flex-col justify-center">
         {/* Brand Header */}
         <div className="text-center mb-8">
             <Logo variant="stacked" className="mx-auto" />
@@ -96,7 +105,7 @@ export const Auth: React.FC<AuthProps> = ({ view, onNavigate, onLogin }) => {
                     </div>
 
                     {error && (
-                        <div className="p-3 bg-rose-50 text-rose-600 text-sm font-medium rounded-lg flex items-center gap-2">
+                        <div className="p-3 bg-rose-50 text-rose-600 text-sm font-medium rounded-lg flex items-center gap-2 animate-in slide-in-from-top-1">
                             <AlertCircle size={16} /> {error}
                         </div>
                     )}
@@ -120,7 +129,7 @@ export const Auth: React.FC<AuthProps> = ({ view, onNavigate, onLogin }) => {
                 <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in slide-in-from-right-4">
                     <h2 className="font-impact text-2xl text-pd-darkblue uppercase text-center mb-2">Create Account</h2>
                     
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <div>
                             <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider mb-1 block">Full Name</label>
                             <div className="relative">
@@ -177,10 +186,29 @@ export const Auth: React.FC<AuthProps> = ({ view, onNavigate, onLogin }) => {
                                 />
                             </div>
                         </div>
+
+                        {/* Terms & Privacy Checkbox */}
+                        <div className="pt-2">
+                            <label className="flex items-start gap-3 cursor-pointer group">
+                                <div className="relative flex items-center">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={agreed}
+                                        onChange={e => setAgreed(e.target.checked)}
+                                        className="peer sr-only"
+                                    />
+                                    <div className="w-5 h-5 border-2 border-pd-softgrey rounded bg-white peer-checked:bg-pd-teal peer-checked:border-pd-teal transition-all"></div>
+                                    <CheckCircle size={14} className="absolute text-white left-0.5 opacity-0 peer-checked:opacity-100 transition-opacity" strokeWidth={4} />
+                                </div>
+                                <span className="text-xs text-pd-slate leading-tight select-none">
+                                    I agree to the <button type="button" onClick={() => onNavigate('terms')} className="font-bold underline hover:text-pd-darkblue">Terms of Service</button> and <button type="button" onClick={() => onNavigate('privacy')} className="font-bold underline hover:text-pd-darkblue">Privacy Policy</button>.
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
                     {error && (
-                        <div className="p-3 bg-rose-50 text-rose-600 text-sm font-medium rounded-lg flex items-center gap-2">
+                        <div className="p-3 bg-rose-50 text-rose-600 text-sm font-medium rounded-lg flex items-center gap-2 animate-in slide-in-from-top-1">
                             <AlertCircle size={16} /> {error}
                         </div>
                     )}
@@ -233,13 +261,7 @@ export const Auth: React.FC<AuthProps> = ({ view, onNavigate, onLogin }) => {
             )}
         </Card>
         
-        <div className="mt-8 text-center space-x-4 text-xs font-bold uppercase tracking-wide text-pd-lightest/60">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <span>•</span>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-            <span>•</span>
-            <a href="#" className="hover:text-white transition-colors">Support</a>
-        </div>
+        <Footer onNavigate={onNavigate} variant="light" />
       </div>
     </div>
   );

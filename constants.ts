@@ -4,10 +4,35 @@ import {
   PhaseConfig, Phases, Achievement, DogData, 
   Coach, Facility, ServiceOption, AddOn, 
   CommunityPost, CommunityEvent, LeaderboardEntry, 
-  Course, MediaItem 
+  Course, MediaItem, Product, SiteConfig
 } from './types';
 import { Brain, Trophy, Users, Star, Award, Flame } from 'lucide-react';
 import React from 'react';
+
+// --- SITE CONFIG MOCK ---
+export const MOCK_SITE_CONFIG: SiteConfig = {
+  id: 'site_conf_1',
+  assets: {
+    logoUrl: 'logo_1.png',
+    logoDarkUrl: 'logo_1.png',
+    faviconUrl: '/favicon.ico'
+  },
+  contact: {
+    phone: '(480) 555-0199',
+    email: 'support@partnersdogs.com',
+    supportUrl: '/support'
+  },
+  links: {
+    universityUrl: 'https://university.partnersdogs.org',
+    knowledgeBaseUrl: 'https://knowledge.partnersdogs.com',
+    bookingPortalUrl: '/booking',
+    guideUrl: 'https://partnersdogs.com/guide'
+  },
+  features: {
+    enableShop: true,
+    enableAi: true
+  }
+};
 
 // --- Grades ---
 export const GRADE_THRESHOLDS: Grade[] = [
@@ -108,8 +133,26 @@ export const ACHIEVEMENTS_MOCK: Achievement[] = [
 
 // --- Booking ---
 export const MOCK_FACILITIES: Facility[] = [
-  { id: 'f1', name: 'Partners Dog Training - Cave Creek', address: 'Cave Creek, AZ', image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', hasPDUAlumni: true, distance: '2.4 miles' },
-  { id: 'f2', name: 'Partners Dog Training - Scottsdale', address: 'Scottsdale, AZ', image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', hasPDUAlumni: true, distance: '8.1 miles' },
+  { 
+    id: 'f1', 
+    name: 'Partners Dog Training - Cave Creek', 
+    address: 'Cave Creek, AZ', 
+    image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', 
+    hasPDUAlumni: true, 
+    distance: '2.4 miles',
+    phone: '(480) 555-0101',
+    email: 'cavecreek@partnersdogs.com'
+  },
+  { 
+    id: 'f2', 
+    name: 'Partners Dog Training - Scottsdale', 
+    address: 'Scottsdale, AZ', 
+    image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', 
+    hasPDUAlumni: true, 
+    distance: '8.1 miles',
+    phone: '(480) 555-0102',
+    email: 'scottsdale@partnersdogs.com'
+  },
 ];
 
 export const BOOKING_SERVICES: ServiceOption[] = [
@@ -127,19 +170,64 @@ export const MOCK_COACHES: Coach[] = [
   { 
     id: 'c1', name: 'Mike T.', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', 
     specialties: ['Behavior Mod', 'Puppy'], location: 'Scottsdale', rating: 4.9, reviews: 124, 
-    bio: 'Specializing in high-drive breeds and behavior modification.', isPDUAlum: true, hourlyRate: 120, availableSlots: ['Mon 9am', 'Tue 2pm'] 
+    bio: 'Specializing in high-drive breeds and behavior modification.', isPDUAlum: true, hourlyRate: 120, 
+    availableSlots: [
+      { id: 's_c1_1', coachId: 'c1', startTime: new Date().toISOString(), endTime: new Date().toISOString(), isBooked: false },
+      { id: 's_c1_2', coachId: 'c1', startTime: new Date().toISOString(), endTime: new Date().toISOString(), isBooked: false }
+    ]
   },
   { 
     id: 'c2', name: 'Sarah J.', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80', 
     specialties: ['Obedience', 'Tricks'], location: 'Phoenix', rating: 5.0, reviews: 89, 
-    bio: 'Passionate about building engagement and fun through tricks.', isPDUAlum: true, hourlyRate: 100, availableSlots: ['Wed 10am', 'Fri 4pm'] 
+    bio: 'Passionate about building engagement and fun through tricks.', isPDUAlum: true, hourlyRate: 100, 
+    availableSlots: [
+      { id: 's_c2_1', coachId: 'c2', startTime: new Date().toISOString(), endTime: new Date().toISOString(), isBooked: false },
+      { id: 's_c2_2', coachId: 'c2', startTime: new Date().toISOString(), endTime: new Date().toISOString(), isBooked: false }
+    ]
   },
 ];
 
 // --- Community ---
 export const MOCK_POSTS: CommunityPost[] = [
-  { id: 'p1', authorName: 'Sarah J.', authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80', timeAgo: '2h ago', content: "Barnaby finally hit Level 5 on his \"Place\" command! He held it for 10 minutes while I cooked dinner. So proud of this guy! 🎓", image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', likes: 24, comments: 5, tags: ['Win', 'Place'], likedByMe: true },
-  { id: 'p2', authorName: 'Mike T.', authorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80', timeAgo: '5h ago', content: "Quick tip: If your dog is struggling with 'Heel', try increasing your pace. Movement creates focus!", likes: 45, comments: 12, tags: ['TrainerTip'], likedByMe: false },
+  { 
+    id: 'p1', 
+    authorId: 'u1',
+    authorName: 'Sarah J.', 
+    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80', 
+    timeAgo: '2h ago', 
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    content: "Barnaby finally hit Level 5 on his \"Place\" command! He held it for 10 minutes while I cooked dinner. So proud of this guy! 🎓", 
+    image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', 
+    likes: 24, 
+    comments: 5, 
+    tags: ['Win', 'Place'], 
+    likedByMe: true,
+    reactions: [
+      { type: 'high-five', count: 24, userReacted: true },
+      { type: 'sniff', count: 5, userReacted: false },
+      { type: 'howl', count: 2, userReacted: false }
+    ],
+    commentCount: 5
+  },
+  { 
+    id: 'p2', 
+    authorId: 'u2',
+    authorName: 'Mike T.', 
+    authorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80', 
+    timeAgo: '5h ago', 
+    createdAt: new Date(Date.now() - 18000000).toISOString(),
+    content: "Quick tip: If your dog is struggling with 'Heel', try increasing your pace. Movement creates focus!", 
+    likes: 45, 
+    comments: 12, 
+    tags: ['TrainerTip'], 
+    likedByMe: false,
+    reactions: [
+      { type: 'high-five', count: 45, userReacted: false },
+      { type: 'sniff', count: 12, userReacted: false },
+      { type: 'howl', count: 8, userReacted: false }
+    ],
+    commentCount: 12
+  },
 ];
 
 export const MOCK_EVENTS: CommunityEvent[] = [
@@ -148,11 +236,11 @@ export const MOCK_EVENTS: CommunityEvent[] = [
 ];
 
 export const LEADERBOARD_DATA: LeaderboardEntry[] = [
-  { rank: 1, dogName: 'Maximus', score: 850, avatar: 'https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?auto=format&fit=crop&w=100&q=80', trend: 'stable' },
-  { rank: 2, dogName: 'Bella', score: 820, avatar: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=100&q=80', trend: 'up' },
-  { rank: 3, dogName: 'Barnaby', score: 234, avatar: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=100&q=80', trend: 'up' },
-  { rank: 4, dogName: 'Cooper', score: 210, avatar: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=100&q=80', trend: 'down' },
-  { rank: 5, dogName: 'Luna', score: 150, avatar: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=100&q=80', trend: 'stable' },
+  { rank: 1, dogId: 'd_max', dogName: 'Maximus', score: 850, avatar: 'https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?auto=format&fit=crop&w=100&q=80', trend: 'stable' },
+  { rank: 2, dogId: 'd_bella', dogName: 'Bella', score: 820, avatar: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=100&q=80', trend: 'up' },
+  { rank: 3, dogId: 'd1', dogName: 'Barnaby', score: 234, avatar: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=100&q=80', trend: 'up' },
+  { rank: 4, dogId: 'd_cooper', dogName: 'Cooper', score: 210, avatar: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=100&q=80', trend: 'down' },
+  { rank: 5, dogId: 'd2', dogName: 'Luna', score: 150, avatar: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=100&q=80', trend: 'stable' },
 ];
 
 // --- Learning ---
@@ -176,6 +264,73 @@ export const BEHAVIOR_TAGS = ['Sit', 'Down', 'Place', 'Heel', 'Recall', 'Play', 
 export const MOCK_MEDIA_LIBRARY: MediaItem[] = [
   { id: 'm1', type: 'video', url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', thumbnail: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', date: 'Oct 20', title: 'Place Command Session', tags: ['Place', 'Duration'], notes: 'Held for 2 mins.' },
   { id: 'm2', type: 'photo', url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', thumbnail: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', date: 'Oct 18', title: 'Park Exposure', tags: ['Social', 'Environment'], notes: 'Relaxed body language.' }
+];
+
+// --- Shop ---
+export const SHOP_INVENTORY: Product[] = [
+  {
+    id: 'p1',
+    title: 'Herm Sprenger Prong Collar',
+    categoryId: 'collars',
+    basePrice: 29.99,
+    description: 'The gold standard for communication. Chrome plated steel with center plate.',
+    brand: 'Herm Sprenger',
+    hasVariants: true,
+    variants: [
+        { id: 'v1', name: '2.25mm', price: 29.99, inStock: true },
+        { id: 'v2', name: '3.0mm', price: 34.99, inStock: true }
+    ],
+    image: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=400&q=80',
+    inStock: true
+  },
+  {
+    id: 'p2',
+    title: 'Biothane Long Line (15ft)',
+    categoryId: 'training',
+    basePrice: 24.99,
+    description: 'Essential tool for recall training and decompression walks. Waterproof and durable.',
+    brand: 'Partners Dogs',
+    hasVariants: false,
+    image: 'https://images.unsplash.com/photo-1551856392-f07d5203001e?auto=format&fit=crop&w=400&q=80',
+    inStock: true
+  },
+  {
+    id: 'p3',
+    title: 'High Value Training Treats',
+    categoryId: 'training',
+    basePrice: 12.99,
+    description: 'Soft, smelly, and irresistible. Perfect for marking new behaviors.',
+    brand: 'Partners Dogs',
+    hasVariants: false,
+    image: 'https://images.unsplash.com/photo-1582798358481-d199fb7347bb?auto=format&fit=crop&w=400&q=80',
+    inStock: true
+  },
+  {
+    id: 'p4',
+    title: 'Kuranda Place Bed',
+    categoryId: 'training',
+    basePrice: 89.99,
+    description: 'The ultimate tool for teaching "Place". Chew proof and comfortable.',
+    brand: 'Kuranda',
+    hasVariants: true,
+    variants: [
+        { id: 'v_sm', name: 'Small (30x20)', price: 89.99, inStock: true },
+        { id: 'v_lg', name: 'Large (40x25)', price: 109.99, inStock: true }
+    ],
+    image: 'https://images.unsplash.com/photo-1581888227599-779811985203?auto=format&fit=crop&w=400&q=80',
+    inStock: true
+  },
+  {
+    id: 'p5',
+    title: 'DuraChew Bone',
+    categoryId: 'toys',
+    basePrice: 14.99,
+    description: 'Long-lasting nylon chew for aggressive chewers.',
+    brand: 'Nylabone',
+    hasVariants: false,
+    image: 'https://images.unsplash.com/photo-1535295972055-1c762f4483e5?auto=format&fit=crop&w=400&q=80',
+    inStock: true
+  }
 ];
 
 // --- Dogs ---

@@ -8,6 +8,7 @@ import {
   Thermometer, Pill, ShieldAlert, Zap, AlertOctagon,
   ChevronRight, Brain, Bone, Trash2
 } from 'lucide-react';
+import { DataService } from '../services/dataService';
 
 // --- MOCK DATA ---
 const MOCK_MEDS: Medication[] = [
@@ -21,8 +22,7 @@ const calculateMetabolicProfile = (dog: DogData): MetabolicProfile => {
   const weightKg = dog.weight / 2.20462;
   const rer = 70 * Math.pow(weightKg, 0.75); // Gold standard RER
   
-  // Simple logic for activity factor (Mocked based on breed/age for now)
-  // In real app, this comes from collar data
+  // Simple logic for activity factor
   let activityFactor = 1.6; // Neutered Adult
   if (!dog.fixed) activityFactor = 1.8;
   if (dog.birthDate && new Date().getFullYear() - new Date(dog.birthDate).getFullYear() < 1) activityFactor = 3.0; // Puppy
@@ -43,10 +43,6 @@ const getRotationDegrees = (timeStr: string) => {
   const totalMinutes = h * 60 + m;
   // 24 hours = 1440 mins = 360 degrees
   return (totalMinutes / 1440) * 360;
-};
-
-const formatTime = (date: Date) => {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 };
 
 // --- SUB-COMPONENTS ---
@@ -137,7 +133,7 @@ const FuelGauge: React.FC<{ current: number, max: number, treatCount: number }> 
   );
 };
 
-// --- MAIN COMPONENT: APEX HEALTH SYSTEM ---
+// --- MAIN COMPONENT ---
 
 interface PottySchedulerProps {
   dogData: DogData;
@@ -154,9 +150,15 @@ export const PottyScheduler: React.FC<PottySchedulerProps> = ({ dogData }) => {
   const [environmentAlert, setEnvironmentAlert] = useState<{type: 'VIRUS' | 'HEAT' | 'NONE', msg: string}>({ type: 'NONE', msg: '' });
 
   useEffect(() => {
-    // Simulating "Bio-Radar" check
+    // 1. Fetch Logs
+    const loadLogs = async () => {
+        const data = await DataService.fetchHealthLogs(dogData.id);
+        setLogs(data);
+    };
+    loadLogs();
+
+    // 2. Simulating "Bio-Radar"
     const checkEnvironment = () => {
-        // Randomly trigger an alert for demo
         const rand = Math.random();
         if (rand > 0.7) {
             setEnvironmentAlert({ type: 'HEAT', msg: 'High Pavement Temp: 145°F. Burn Risk.' });
@@ -166,25 +168,29 @@ export const PottyScheduler: React.FC<PottySchedulerProps> = ({ dogData }) => {
     };
     checkEnvironment();
     
+    // 3. Clock
     const interval = setInterval(() => setNow(new Date()), 60000); // Update minute
     return () => clearInterval(interval);
-  }, []);
+  }, [dogData.id]);
 
   const dailyCalories = logs
     .filter(l => new Date(l.timestamp).toDateString() === now.toDateString() && l.calories)
     .reduce((acc, curr) => acc + (curr.calories || 0), 0);
     
   const treatCalories = logs
-    .filter(l => new Date(l.timestamp).toDateString() === now.toDateString() && l.type === 'MEAL' && l.calories && l.calories < 50) // Simple heuristic
+    .filter(l => new Date(l.timestamp).toDateString() === now.toDateString() && l.type === 'MEAL' && l.calories && l.calories < 50) 
     .reduce((acc, curr) => acc + (curr.calories || 0), 0);
 
-  const handleQuickLog = (type: HealthEvent['type'], details: any = {}) => {
+  const handleQuickLog = async (type: HealthEvent['type'], details: any = {}) => {
     const newLog: HealthEvent = {
-        id: Date.now().toString(),
+        id: `health_${Date.now()}`,
+        dogId: dogData.id,
         timestamp: new Date().toISOString(),
         type,
         ...details
     };
+    
+    await DataService.logHealthEvent(newLog);
     setLogs(prev => [...prev, newLog]);
     setIsLogModalOpen(false);
   };

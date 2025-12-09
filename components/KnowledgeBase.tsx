@@ -1,11 +1,43 @@
 
-import React from 'react';
-import { BookOpen, PlayCircle, Lock, CheckCircle, ExternalLink, Search, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BookOpen, PlayCircle, Lock, CheckCircle, ExternalLink, Search, GraduationCap, FileText, Library, Loader } from 'lucide-react';
 import { Card, Button } from './UI';
-import { MOCK_COURSES, SKILL_TREE } from '../constants';
+import { DataService } from '../services/dataService';
+import { Course, SkillCategory, SiteConfig } from '../types';
 
 export const KnowledgeBase: React.FC = () => {
-  const flattenedSkills = SKILL_TREE.flatMap(cat => cat.skills).filter(s => s.link);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [curriculum, setCurriculum] = useState<SkillCategory[]>([]);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+        try {
+            const [fetchedCourses, fetchedCurriculum, fetchedConfig] = await Promise.all([
+                DataService.fetchCourses(),
+                DataService.fetchCurriculum(),
+                DataService.fetchSiteConfig()
+            ]);
+            setCourses(fetchedCourses);
+            setCurriculum(fetchedCurriculum);
+            setSiteConfig(fetchedConfig);
+        } catch (error) {
+            console.error("Failed to load knowledge base data", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchData();
+  }, []);
+
+  const flattenedSkills = useMemo(() => 
+    curriculum.flatMap(cat => cat.skills).filter(s => s.link), 
+  [curriculum]);
+
+  if (loading) {
+      return <div className="flex items-center justify-center min-h-[400px]"><Loader className="animate-spin text-pd-teal" size={40} /></div>;
+  }
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-24">
@@ -26,16 +58,20 @@ export const KnowledgeBase: React.FC = () => {
                Access our comprehensive curriculum, from puppy foundations to advanced behavior modification. Your journey to a better relationship starts here.
             </p>
             <div className="flex gap-4">
-               <a href="https://university.partnersdogs.org" target="_blank" rel="noreferrer">
-                  <Button variant="accent" className="!px-8 !py-4 !text-lg">
-                     Go to University
-                  </Button>
-               </a>
-               <a href="https://knowledge.partnersdogs.com" target="_blank" rel="noreferrer">
-                  <Button variant="secondary" className="!px-8 !py-4 !text-lg !bg-white/10 !text-white !border-white hover:!bg-white hover:!text-pd-darkblue">
-                     Browse Knowledge Base
-                  </Button>
-               </a>
+               {siteConfig?.links?.universityUrl && (
+                   <a href={siteConfig.links.universityUrl} target="_blank" rel="noreferrer">
+                      <Button variant="accent" className="!px-8 !py-4 !text-lg">
+                         Go to University
+                      </Button>
+                   </a>
+               )}
+               {siteConfig?.links?.knowledgeBaseUrl && (
+                   <a href={siteConfig.links.knowledgeBaseUrl} target="_blank" rel="noreferrer">
+                      <Button variant="secondary" className="!px-8 !py-4 !text-lg !bg-white/10 !text-white !border-white hover:!bg-white hover:!text-pd-darkblue">
+                         Browse Knowledge Base
+                      </Button>
+                   </a>
+               )}
             </div>
          </div>
       </div>
@@ -44,7 +80,7 @@ export const KnowledgeBase: React.FC = () => {
       <div>
          <h2 className="font-impact text-3xl text-pd-darkblue tracking-wide uppercase mb-6">YOUR LEARNING PATH</h2>
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {MOCK_COURSES.map(course => (
+            {courses.map(course => (
                <Card key={course.id} className="bg-white !p-0 overflow-hidden border-2 border-pd-lightest hover:shadow-xl transition-shadow group">
                   <div className="h-48 bg-pd-slate relative overflow-hidden">
                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700" />

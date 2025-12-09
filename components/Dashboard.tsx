@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   RefreshCw, 
@@ -14,17 +15,12 @@ import {
   ArrowUpRight,
   Send,
   Target,
-  AlertTriangle,
-  Brain,
   ShoppingBag,
   Heart,
   Activity,
   Utensils,
-  Syringe,
-  Weight,
   Droplets,
   Check,
-  MessageCircle
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -41,8 +37,9 @@ import {
   Radar 
 } from 'recharts';
 import { Card, Button, Modal } from './UI';
-import { DogData, Grade, Note } from '../types';
+import { DogData, Grade, Note, HealthEvent } from '../types';
 import { FULL_HISTORY_DATA, RADAR_DATA, TRAINER_NOTES, ACHIEVEMENTS_MOCK } from '../constants';
+import { DataService } from '../services/dataService';
 
 interface DashboardProps {
   dogData: DogData;
@@ -104,8 +101,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
      }, 2000);
   };
   
-  const handleQuickLog = (type: string, label: string) => {
-      setQuickLogStatus({ id: type, label });
+  const handleQuickLog = async (uiId: string, label: string, eventType: HealthEvent['type']) => {
+      setQuickLogStatus({ id: uiId, label });
+      
+      const newLog: HealthEvent = {
+          id: `quick_${Date.now()}`,
+          dogId: dogData.id,
+          timestamp: new Date().toISOString(),
+          type: eventType
+      };
+      
+      try {
+          await DataService.logHealthEvent(newLog);
+      } catch (e) {
+          console.error("Failed to quick log", e);
+      }
+
       setTimeout(() => setQuickLogStatus(null), 2000);
   };
 
@@ -114,7 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
     window.dispatchEvent(event);
   };
 
-  const nextReservation = dogData.reservations?.find(r => r.status === 'Upcoming');
+  const nextReservation = dogData.reservations?.find(r => r.status === 'confirmed' || r.status === 'pending');
 
   const { strongestSkill, weakestSkill } = useMemo(() => {
      const sorted = [...RADAR_DATA].sort((a, b) => b.A - a.A);
@@ -179,15 +190,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ dogData, gradeInfo, isSync
       {/* 2. Quick Log (Mobile Only) */}
       <div className="lg:hidden">
           <div className="grid grid-cols-3 gap-3">
-            <button onClick={() => handleQuickLog('pee', 'Pee Logged')} className="bg-white p-3 rounded-2xl border-2 border-pd-lightest shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
+            <button onClick={() => handleQuickLog('pee', 'Pee Logged', 'ELIMINATION_PEE')} className="bg-white p-3 rounded-2xl border-2 border-pd-lightest shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
               {quickLogStatus?.id === 'pee' ? <Check size={24} className="text-emerald-500" /> : <Droplets size={24} className="text-pd-teal" />}
               <span className="text-[10px] font-bold text-pd-darkblue uppercase tracking-wide">Log Pee</span>
             </button>
-            <button onClick={() => handleQuickLog('poop', 'Poop Logged')} className="bg-white p-3 rounded-2xl border-2 border-pd-lightest shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
+            <button onClick={() => handleQuickLog('poop', 'Poop Logged', 'ELIMINATION_POOP')} className="bg-white p-3 rounded-2xl border-2 border-pd-lightest shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
               {quickLogStatus?.id === 'poop' ? <Check size={24} className="text-emerald-500" /> : <div className="text-2xl">💩</div>}
               <span className="text-[10px] font-bold text-pd-darkblue uppercase tracking-wide">Log Poop</span>
             </button>
-            <button onClick={() => handleQuickLog('meal', 'Meal Logged')} className="bg-white p-3 rounded-2xl border-2 border-pd-lightest shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
+            <button onClick={() => handleQuickLog('meal', 'Meal Logged', 'MEAL')} className="bg-white p-3 rounded-2xl border-2 border-pd-lightest shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
               {quickLogStatus?.id === 'meal' ? <Check size={24} className="text-emerald-500" /> : <Utensils size={24} className="text-orange-500" />}
               <span className="text-[10px] font-bold text-pd-darkblue uppercase tracking-wide">Log Meal</span>
             </button>

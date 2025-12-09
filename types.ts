@@ -1,6 +1,31 @@
 
 import React from 'react';
 
+// --- Global Site Configuration ---
+export interface SiteConfig {
+  id: string;
+  assets: {
+    logoUrl: string;
+    logoDarkUrl: string;
+    faviconUrl: string;
+  };
+  contact: {
+    phone: string;
+    email: string;
+    supportUrl: string;
+  };
+  links: {
+    universityUrl: string;
+    knowledgeBaseUrl: string;
+    bookingPortalUrl: string;
+    guideUrl: string;
+  };
+  features: {
+    enableShop: boolean;
+    enableAi: boolean;
+  };
+}
+
 export interface Grade {
   name: string;
   minScore: number;
@@ -84,6 +109,7 @@ export interface Course {
   link: string;
 }
 
+// --- Coaching (Pros) Types ---
 export interface Coach {
   id: string;
   name: string;
@@ -95,10 +121,33 @@ export interface Coach {
   bio: string;
   isPDUAlum: boolean;
   hourlyRate: number;
-  availableSlots: string[];
+  availableSlots: TimeSlot[]; // Denormalized for UI, derived from DB
 }
 
-// --- Booking Types ---
+export interface TimeSlot {
+  id: string;
+  coachId: string;
+  startTime: string; // ISO String
+  endTime: string; // ISO String
+  isBooked: boolean;
+}
+
+export interface CoachingSession {
+  id: string;
+  userId: string;
+  dogId: string;
+  coachId: string;
+  slotId: string;
+  type: 'virtual' | 'in-person';
+  status: 'scheduled' | 'completed' | 'cancelled';
+  meetingLink?: string; // For virtual
+  location?: string; // For in-person
+  notes?: string;
+  pricePaid: number;
+  bookedAt: string;
+}
+
+// --- Booking (Spots) Types ---
 export interface Facility {
   id: string;
   name: string;
@@ -106,6 +155,8 @@ export interface Facility {
   image: string;
   hasPDUAlumni: boolean;
   distance: string;
+  phone: string;
+  email: string;
 }
 
 export interface ServiceOption {
@@ -126,12 +177,26 @@ export interface AddOn {
 
 export interface Reservation {
   id: string;
-  serviceName: string;
-  startDate: string;
-  endDate: string;
-  status: 'Upcoming' | 'Completed' | 'Cancelled';
+  userId: string;
+  dogId: string;
+  facilityId: string;
+  serviceId: string;
+  serviceName: string; // Snapshot
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  dropOffTime: string;
+  pickUpTime: string;
+  addOns: {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+  }[];
+  notes?: string;
   totalPrice: number;
-  facilityName?: string;
+  status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled';
+  paymentStatus: 'paid' | 'deposit-paid' | 'unpaid';
+  confirmationCode?: string;
 }
 
 export interface OwnerProfile {
@@ -281,25 +346,50 @@ export interface AnalysisResult {
   recommendations?: string[];
 }
 
-export interface TrainingSession {
-  title: string;
-  duration?: string;
-  exercises: string[];
+// DB Table: training_sessions
+export interface TrainingSessionRecord {
+  id: string;
+  dogId: string;
+  date: string;
+  durationSeconds: number;
+  skillsWorked: {
+    skillName: string;
+    successCount: number;
+    failCount: number;
+  }[];
+  notes?: string;
 }
 
+// DB Table: training_plans
 export interface DailyPlan {
   day: string;
   focus: string;
-  morning: TrainingSession;
-  evening: TrainingSession;
+  morning: {
+    title: string;
+    duration?: string;
+    exercises: string[];
+  };
+  evening: {
+    title: string;
+    duration?: string;
+    exercises: string[];
+  };
   bonus: {
     title: string;
     exercises: string[];
   };
 }
 
-// --- Social & Community Types (Updated) ---
+export interface TrainingPlan {
+  id: string;
+  dogId: string;
+  createdAt: string;
+  weekSchedule: DailyPlan[];
+}
 
+// --- Social & Community DB Types ---
+
+// Table: badges
 export interface Badge {
   id: string;
   name: string;
@@ -308,6 +398,7 @@ export interface Badge {
   description?: string;
 }
 
+// Table: packs
 export interface Pack {
   id: string;
   name: string;
@@ -316,9 +407,18 @@ export interface Pack {
   membersCount: number;
   location?: string;
   isPrivate: boolean;
-  isMember: boolean;
+  isMember: boolean; // Derived from pack_members
   description: string;
-  nextEvent?: string;
+  nextEventId?: string; // Relation to events table
+  nextEvent?: string; // Derived string for display
+}
+
+// Table: pack_members
+export interface PackMember {
+  packId: string;
+  userId: string;
+  role: 'admin' | 'member';
+  joinedAt: string;
 }
 
 export interface Reaction {
@@ -327,49 +427,93 @@ export interface Reaction {
   userReacted: boolean;
 }
 
+// Table: posts
 export interface CommunityPost {
   id: string;
-  authorName: string;
-  authorAvatar: string;
-  authorBadges?: Badge[];
-  timeAgo: string;
-  content: string;
-  image?: string;
-  likes?: number; // Deprecated in favor of reactions
-  reactions?: Reaction[];
-  comments: number;
-  tags?: string[];
-  likedByMe?: boolean; // Deprecated in favor of reactions
+  authorId: string;
+  authorName: string; // Denormalized for display
+  authorAvatar: string; // Denormalized for display
+  authorBadges?: Badge[]; // Derived
   packId?: string;
-  packName?: string;
+  packName?: string; // Denormalized
+  
+  content: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  
+  createdAt: string; // ISO timestamp
+  timeAgo: string; // Derived
+  
+  // Engagement (Derived from post_reactions and post_comments)
+  reactions: Reaction[];
+  commentCount: number;
+  
+  // Legacy UI fields (to be deprecated or mapped)
+  likes?: number; 
+  image?: string; 
+  comments?: number; // legacy number
+  tags?: string[];
+  likedByMe?: boolean;
 }
 
+// Table: post_comments
+export interface Comment {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
+// Table: events
 export interface CommunityEvent {
   id: string;
   title: string;
-  date: string;
+  description?: string;
+  date: string; // YYYY-MM-DD
   time: string;
   location: string;
   attendees: number;
   type: 'Class' | 'Social' | 'Workshop';
   price?: number;
-  isRegistered?: boolean;
+  isRegistered?: boolean; // Derived from event_registrations
   packId?: string;
+  organizerId?: string;
 }
 
+// Table: event_registrations
+export interface EventRegistration {
+  eventId: string;
+  userId: string;
+  status: 'confirmed' | 'waitlist' | 'cancelled';
+  ticketCode?: string;
+  paidAmount?: number;
+}
+
+// Table: leaderboard (or View)
 export interface LeaderboardEntry {
   rank: number;
+  dogId: string; // Relation to dogs table
   dogName: string;
   score: number;
   avatar: string;
   trend: 'up' | 'down' | 'stable';
-  badges?: Badge[];
+  
+  // Metadata for filters
   breed?: string;
   location?: string;
+  grade?: string;
+  pack?: string;
+  age?: number;
+  
+  badges?: Badge[];
 }
 
+// DB Table: media_library
 export interface MediaItem {
   id: string;
+  dogId?: string;
   type: 'photo' | 'video';
   url: string;
   thumbnail: string;
@@ -440,8 +584,10 @@ export interface VomitLog {
   isEmergency?: boolean;
 }
 
+// DB Table: health_logs
 export interface HealthEvent {
   id: string;
+  dogId?: string;
   timestamp: string; // ISO string
   type: 'MEAL' | 'ELIMINATION_PEE' | 'ELIMINATION_POOP' | 'VOMIT' | 'MEDICATION' | 'WATER' | 'ACTIVITY' | 'SEIZURE';
   
@@ -452,6 +598,7 @@ export interface HealthEvent {
   stoolData?: StoolLog;
   vomitData?: VomitLog;
   seizureDurationSec?: number;
+  duration?: number; // for Activity
 }
 
 export interface MetabolicProfile {
@@ -461,16 +608,30 @@ export interface MetabolicProfile {
   hydrationGoalMl: number;
 }
 
-// --- Shop Types ---
+// DB Table: notification_queue
+export interface NotificationRecord {
+  id: string;
+  userId: string;
+  type: 'EMAIL' | 'SMS' | 'PUSH';
+  title: string;
+  message: string;
+  status: 'SENT' | 'PENDING' | 'FAILED';
+  sentAt?: string;
+  relatedEntityId?: string; // ID of health log, booking, etc.
+}
+
+// --- Shop Types (E-commerce) ---
 export interface ProductVariant {
   id: string;
   name: string; // e.g., "Chrome - 2.25mm"
   price: number;
   inStock: boolean;
+  sku?: string;
 }
 
 export interface Product {
   id: string;
+  externalId?: string; // Shopify/WooCommerce ID
   title: string;
   categoryId: 'training' | 'collars' | 'toys' | 'health';
   basePrice: number;
@@ -479,6 +640,7 @@ export interface Product {
   hasVariants: boolean;
   variants?: ProductVariant[];
   image: string; // Placeholder URL
+  inStock: boolean;
 }
 
 export interface CartItem extends Product {
@@ -486,6 +648,22 @@ export interface CartItem extends Product {
   variantName?: string;
   finalPrice: number;
   quantity: number;
+}
+
+export interface ShopOrder {
+  id: string;
+  userId: string;
+  items: {
+    productId: string;
+    variantId?: string;
+    productName: string;
+    quantity: number;
+    priceAtPurchase: number;
+  }[];
+  totalAmount: number;
+  status: 'pending' | 'paid' | 'shipped' | 'delivered';
+  createdAt: string;
+  externalOrderId?: string;
 }
 
 // --- Learning Types ---
