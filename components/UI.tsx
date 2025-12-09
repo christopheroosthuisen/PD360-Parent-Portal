@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PHASES } from '../constants';
 import { Dog, Activity, Trophy, Calendar, Video, ClipboardList, Menu, X, User, Plus, ChevronDown, Users, BookOpen, CalendarCheck, Settings, Edit3, Ticket, ChevronRight, Target, ImageIcon, Sparkles, Loader, Bell, Store, LifeBuoy, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
@@ -236,7 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout
 }) => {
   const [isDogMenuOpen, setIsDogMenuOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const selectedDog = dogs.find(d => d.id === selectedDogId) || dogs[0];
 
   const menuItems = [
