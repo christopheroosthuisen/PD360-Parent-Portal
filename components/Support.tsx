@@ -26,7 +26,11 @@ const FAQS = [
     }
 ];
 
-export const Support: React.FC = () => {
+interface SupportProps {
+  onNavigate: (view: string) => void;
+}
+
+export const Support: React.FC<SupportProps> = ({ onNavigate }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [contactForm, setContactForm] = useState({ subject: '', message: '' });
@@ -164,8 +168,8 @@ export const Support: React.FC = () => {
                     </div>
                     
                     <div className="mt-8 pt-6 border-t-2 border-pd-lightest flex gap-4">
-                        <Button variant="secondary" className="flex-1" icon={FileText}>Terms of Service</Button>
-                        <Button variant="secondary" className="flex-1" icon={FileText}>Privacy Policy</Button>
+                        <Button variant="secondary" className="flex-1" icon={FileText} onClick={() => onNavigate('terms')}>Terms of Service</Button>
+                        <Button variant="secondary" className="flex-1" icon={FileText} onClick={() => onNavigate('privacy')}>Privacy Policy</Button>
                     </div>
                 </Card>
             </div>

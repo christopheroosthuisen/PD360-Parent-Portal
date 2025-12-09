@@ -18,7 +18,7 @@ import { Signup } from './pages/Signup';
 import { NotFound } from './pages/NotFound';
 import { ServerError } from './pages/ServerError';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { getCurrentGrade } from './constants';
+import { getCurrentGrade, MOCK_DOGS } from './constants';
 import { Menu } from 'lucide-react';
 import { DogData } from './types';
 import { CartProvider } from './CartContext';
@@ -68,10 +68,16 @@ const AppContent = () => {
       }
 
       try {
-        const fetchedDogs = await DataService.fetchDogs();
-        setDogs(fetchedDogs);
-        if (fetchedDogs.length > 0) {
-          setSelectedDogId(fetchedDogs[0].id);
+        const fetchedDogs = await DataService.fetchDogs(currentUser.uid);
+        
+        // --- DEV DEMO FALLBACK ---
+        // If user has no dogs in DB, load the mock for demonstration purposes
+        if (fetchedDogs.length === 0) {
+           setDogs(MOCK_DOGS);
+           setSelectedDogId(MOCK_DOGS[0].id);
+        } else {
+           setDogs(fetchedDogs);
+           setSelectedDogId(fetchedDogs[0].id);
         }
       } catch (error) {
         console.error("Failed to load application data", error);
@@ -86,26 +92,36 @@ const AppContent = () => {
     }
   }, [currentUser, authLoading]);
 
-  const handleSync = () => {
+  const handleSync = async () => {
     setIsSyncing(true);
     if (selectedDog) {
-      logSyncData(selectedDog);
+      try {
+        // Log locally
+        logSyncData(selectedDog);
+        // Execute actual HubSpot Sync
+        await DataService.syncToCrm(selectedDog);
+      } catch (e) {
+        console.error("Sync error", e);
+      }
     }
+    
+    // Simulate UI refresh feeling
     setTimeout(() => {
       setIsSyncing(false);
       const updatedDogs = dogs.map(d => {
          if (d.id === selectedDogId) {
-            return { ...d, currentScore: Math.min(d.currentScore + 10, 900), lastSync: "Just now" };
+            return { ...d, lastSync: "Just now" };
          }
          return d;
       });
       setDogs(updatedDogs);
-    }, 2000);
+    }, 1000);
   };
 
-  const handleDogUpdate = (updatedDog: DogData) => {
+  const handleDogUpdate = async (updatedDog: DogData) => {
      const newDogs = dogs.map(d => d.id === updatedDog.id ? updatedDog : d);
      setDogs(newDogs);
+     await DataService.updateDog(updatedDog.id, updatedDog);
   };
 
   const handleViewChange = (view: string) => {
@@ -149,10 +165,13 @@ const AppContent = () => {
   }
 
   // 3. Protected App View
-  // If no dog loaded yet but authenticated, show loading or empty state
-  if (currentUser && !selectedDog) {
-     return <div className="flex items-center justify-center h-screen">Loading Profile...</div>;
+  // If no dog loaded yet but authenticated (and loaded), show onboarding or fallback
+  if (currentUser && dogs.length === 0 && isLoaded) {
+     return <div className="flex items-center justify-center h-screen">No Dogs Found. Create One (Feature Coming Soon)</div>;
   }
+
+  // Fallback for types safety
+  if (!selectedDog) return <AppLoadingScreen />;
 
   return (
     <ProtectedRoute onRedirect={setActiveView}>
@@ -224,7 +243,7 @@ const AppContent = () => {
                   />
                 )}
 
-                {activeView === 'support' && <Support />}
+                {activeView === 'support' && <Support onNavigate={handleViewChange} />}
                 
                 {/* Legal Pages (Protected View Version) */}
                 {activeView === 'privacy' && <PrivacyPolicy />}

@@ -35,8 +35,7 @@ export const Signup: React.FC<SignupProps> = ({ onNavigate, onLoginSuccess }) =>
 
     setLoading(true);
     try {
-      await signup(email, password);
-      // In a real app, we'd also save 'name' to the User Profile in Firestore here
+      await signup(email, password, name);
       setToast({ msg: "Account created successfully!", type: 'success' });
       setTimeout(onLoginSuccess, 1000);
     } catch (error: any) {
