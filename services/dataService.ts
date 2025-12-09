@@ -1,167 +1,156 @@
 
 import { 
-  MOCK_DOGS, 
-  SHOP_INVENTORY, 
-  MOCK_COACHES, 
-  MOCK_EVENTS,
-  MOCK_POSTS,
-  MOCK_FACILITIES,
-  BOOKING_SERVICES,
-  BOOKING_ADDONS,
-  SKILL_TREE,
-  MOCK_COURSES,
-  MOCK_SITE_CONFIG,
-  MOCK_MEDIA_LIBRARY,
-  LEADERBOARD_DATA
+  MOCK_DOGS, SHOP_INVENTORY, MOCK_COACHES, MOCK_EVENTS, MOCK_POSTS, 
+  MOCK_FACILITIES, BOOKING_SERVICES, BOOKING_ADDONS, SKILL_TREE, 
+  MOCK_COURSES, MOCK_SITE_CONFIG, MOCK_MEDIA_LIBRARY, LEADERBOARD_DATA
 } from '../constants';
 import { 
   DogData, Product, Coach, CommunityEvent, CommunityPost, 
   Facility, ServiceOption, AddOn, SkillCategory, Course, 
-  SiteConfig, TrainingPlan, TrainingSessionRecord, MediaItem, HealthEvent, NotificationRecord,
-  Pack, LeaderboardEntry, Reaction, Badge,
-  Reservation, CoachingSession, ShopOrder, CartItem, TimeSlot, CalendarEvent
+  SiteConfig, TrainingPlan, TrainingSessionRecord, MediaItem, HealthEvent, 
+  NotificationRecord, Pack, LeaderboardEntry, Reaction, Reservation, CartItem, CalendarEvent
 } from '../types';
 import { db, isFirebaseConfigured } from '../firebaseConfig';
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
-  addDoc, 
-  doc, 
-  updateDoc, 
-  getDoc, 
-  setDoc 
-} from 'firebase/firestore';
 import { HubSpotService } from './hubspotService';
 
-// Simulating API Latency for UX feel
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+/**
+ * DataService acts as the unified data layer.
+ * It handles the logic of switching between Firebase (Real) and Constants (Mock)
+ * based on the configuration state.
+ */
+
+// Helper to simulate network latency for better UX testing with mock data
+const simulateLatency = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper to log mock data usage
+const logMockUsage = (method: string) => {
+  // console.debug(`[DataService] ${method}: Using Mock Data (Firebase not configured)`);
+};
 
 export const DataService = {
-  // --- Core User Data (Firestore Integrated) ---
   
-  /**
-   * Fetches all dogs belonging to the authenticated user.
-   */
+  // ==========================================
+  // CORE USER DATA (Dogs & Profiles)
+  // ==========================================
+
   fetchDogs: async (userId?: string): Promise<DogData[]> => {
-    if (!isFirebaseConfigured) {
-        await delay(500);
-        return MOCK_DOGS;
-    }
-
     if (!userId) return [];
-    
-    try {
-      const q = query(collection(db, "dogs"), where("owner.id", "==", userId));
-      const querySnapshot = await getDocs(q);
-      const dogs: DogData[] = [];
-      
-      querySnapshot.forEach((doc) => {
-        dogs.push({ id: doc.id, ...doc.data() } as DogData);
-      });
 
-      if (dogs.length === 0) {
-         return [];
+    if (isFirebaseConfigured) {
+      try {
+        const snapshot = await db.collection("dogs").where("owner.id", "==", userId).get();
+        if (snapshot.empty) return [];
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DogData));
+      } catch (e) {
+        console.error("Error fetching dogs:", e);
+        return []; 
       }
-
-      return dogs;
-    } catch (e) {
-      console.error("Error fetching dogs:", e);
-      return []; 
+    } else {
+      logMockUsage('fetchDogs');
+      await simulateLatency();
+      return MOCK_DOGS;
     }
   },
 
-  /**
-   * Creates a new dog profile in Firestore AND HubSpot
-   */
   createDog: async (dogData: Omit<DogData, 'id'>): Promise<string> => {
-    if (!isFirebaseConfigured) {
-        await delay(500);
-        console.log("Mock Dog Created");
-        return "mock_new_dog_id";
-    }
+    if (isFirebaseConfigured) {
+      try {
+        // 1. Create in Firestore
+        const docRef = await db.collection("dogs").add(dogData);
+        
+        // 2. Sync to HubSpot (Background)
+        HubSpotService.syncData({ ...dogData, id: docRef.id } as DogData)
+          .catch(err => console.error("HubSpot Sync Failed", err));
 
-    try {
-      // 1. Create in Firestore
-      const docRef = await addDoc(collection(db, "dogs"), dogData);
-      const newId = docRef.id;
-      
-      // 2. Sync to HubSpot (Async, don't block UI strictly, but good to await for data consistency)
-      const fullDogData = { ...dogData, id: newId } as DogData;
-      HubSpotService.syncData(fullDogData).catch(err => console.error("Background HubSpot Sync Failed", err));
-
-      return newId;
-    } catch (e) {
-      console.error("Error creating dog:", e);
-      throw e;
+        return docRef.id;
+      } catch (e) {
+        console.error("Error creating dog:", e);
+        throw e;
+      }
+    } else {
+      logMockUsage('createDog');
+      await simulateLatency();
+      return `mock_dog_${Date.now()}`;
     }
   },
 
   updateDog: async (dogId: string, data: Partial<DogData>): Promise<void> => {
-    if (!isFirebaseConfigured) {
-        console.log("Mock Dog Update:", data);
-        return;
-    }
-
-    try {
-        const dogRef = doc(db, "dogs", dogId);
-        await updateDoc(dogRef, data);
+    if (isFirebaseConfigured) {
+      try {
+        const dogRef = db.collection("dogs").doc(dogId);
+        await dogRef.update(data);
         
-        // Fetch full updated doc to sync to HubSpot
-        const snap = await getDoc(dogRef);
-        if (snap.exists()) {
-            const fullData = { id: snap.id, ...snap.data() } as DogData;
-            HubSpotService.syncData(fullData).catch(err => console.error("Background HubSpot Sync Failed", err));
+        // Sync update to HubSpot
+        const snap = await dogRef.get();
+        if (snap.exists) {
+            HubSpotService.syncData({ id: snap.id, ...snap.data() } as DogData)
+              .catch(err => console.error("HubSpot Sync Failed", err));
         }
-    } catch (e) {
+      } catch (e) {
         console.error("Error updating dog:", e);
+      }
+    } else {
+      logMockUsage('updateDog');
+      // No-op for mock
     }
   },
 
-  /**
-   * Explicitly Sync to CRM (Triggered by UI Button)
-   */
   syncToCrm: async (dogData: DogData): Promise<void> => {
-      if (!isFirebaseConfigured) {
-          console.log("Mock CRM Sync triggered");
-          await delay(1000);
-          return;
-      }
+    if (isFirebaseConfigured) {
       await HubSpotService.syncData(dogData);
+    } else {
+      logMockUsage('syncToCrm');
+      await simulateLatency(1000);
+    }
   },
+
+  // ==========================================
+  // CONFIGURATION
+  // ==========================================
 
   fetchSiteConfig: async (): Promise<SiteConfig> => {
+    // Usually static or cached
     return MOCK_SITE_CONFIG;
   },
 
-  // --- Marketplace: Shop (Mock for now) ---
+  // ==========================================
+  // MARKETPLACE (Shop, Coaching, Booking)
+  // ==========================================
+
   fetchShopItems: async (): Promise<Product[]> => {
-    await delay(300);
+    // In production, this would query a 'products' collection or Shopify API
+    await simulateLatency(300);
     return SHOP_INVENTORY;
   },
 
   createShopOrder: async (userId: string, items: CartItem[], total: number): Promise<void> => {
-      await delay(800);
-      console.log(`Order created for ${userId}: $${total}`);
+    if (isFirebaseConfigured) {
+      await db.collection("orders").add({
+        userId, items, total, status: 'pending', createdAt: new Date().toISOString()
+      });
+    } else {
+      logMockUsage('createShopOrder');
+      await simulateLatency(800);
+    }
   },
 
-  // --- Marketplace: Pros (Coaching) ---
   fetchCoaches: async (): Promise<Coach[]> => {
-    await delay(300);
+    // In production, query 'coaches' collection
+    await simulateLatency(300);
     return MOCK_COACHES;
   },
 
   bookCoachingSession: async (userId: string, coachId: string, slotId: string, type: 'virtual' | 'in-person'): Promise<void> => {
-      await delay(800);
-      if (isFirebaseConfigured) {
-        await addDoc(collection(db, "coaching_sessions"), {
-            userId, coachId, slotId, type, status: 'scheduled', bookedAt: new Date().toISOString()
-        });
-      }
+    if (isFirebaseConfigured) {
+      await db.collection("coaching_sessions").add({
+          userId, coachId, slotId, type, status: 'scheduled', bookedAt: new Date().toISOString()
+      });
+    } else {
+      logMockUsage('bookCoachingSession');
+      await simulateLatency(800);
+    }
   },
 
-  // --- Marketplace: Spots ---
   fetchFacilities: async (): Promise<Facility[]> => {
     return MOCK_FACILITIES;
   },
@@ -171,49 +160,63 @@ export const DataService = {
   },
 
   createReservation: async (reservation: Reservation): Promise<void> => {
-      if (isFirebaseConfigured) {
-        await addDoc(collection(db, "reservations"), {
-            ...reservation,
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        });
-      } else {
-          await delay(500);
-          console.log("Mock Reservation created");
-      }
+    if (isFirebaseConfigured) {
+      await db.collection("reservations").add({
+          ...reservation,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+      });
+    } else {
+      logMockUsage('createReservation');
+      await simulateLatency(500);
+    }
   },
 
-  // --- Training System (Firestore Hybrid) ---
+  // ==========================================
+  // TRAINING & PROGRESS
+  // ==========================================
+
   fetchTrainingPlan: async (dogId: string): Promise<TrainingPlan | null> => {
-    if (!isFirebaseConfigured) return null;
-    try {
-        const q = query(collection(db, "training_plans"), where("dogId", "==", dogId));
-        const snapshot = await getDocs(q);
+    if (isFirebaseConfigured) {
+      try {
+        const snapshot = await db.collection("training_plans")
+          .where("dogId", "==", dogId)
+          .orderBy("createdAt", "desc")
+          .limit(1)
+          .get();
+          
         if (!snapshot.empty) {
             return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as TrainingPlan;
         }
-        return null;
-    } catch (e) {
-        return null;
+      } catch (e) { return null; }
     }
+    return null;
   },
 
   saveTrainingPlan: async (plan: TrainingPlan): Promise<void> => {
     if (isFirebaseConfigured) {
-        await addDoc(collection(db, "training_plans"), plan);
+        await db.collection("training_plans").add(plan);
     }
   },
 
   logTrainingSession: async (session: TrainingSessionRecord): Promise<void> => {
     if (isFirebaseConfigured) {
-        await addDoc(collection(db, "training_sessions"), session);
+        await db.collection("training_sessions").add(session);
     }
   },
 
-  // --- Calendar System ---
+  fetchCurriculum: async (): Promise<SkillCategory[]> => {
+    // Curriculum is currently static constant data
+    return SKILL_TREE;
+  },
+
+  // ==========================================
+  // CALENDAR & EVENTS
+  // ==========================================
+
   fetchCalendarEvents: async (dogId: string): Promise<CalendarEvent[]> => {
-    // If connected, we could merge mock + real. For demo stability, we keep mock events as base.
-    return MOCK_EVENTS.map((evt, idx) => ({
+    // Mix of Real (User logged) and Mock (Community/Static) events
+    const communityEvents = MOCK_EVENTS.map((evt, idx) => ({
        id: `comm_${evt.id}`,
        date: new Date(new Date().setDate(new Date().getDate() + (idx * 3) + 2)).toISOString().split('T')[0],
        title: evt.title,
@@ -222,89 +225,136 @@ export const DataService = {
        location: evt.location,
        description: 'Community Event'
     }));
+
+    if (isFirebaseConfigured) {
+        // Fetch user specific events from DB here and merge
+        // const userEvents = ...
+        return communityEvents; 
+    }
+    
+    return communityEvents;
   },
 
   saveCalendarEvents: async (events: CalendarEvent[]): Promise<void> => {
-    console.log("Saving events to DB", events.length);
+    // In a real app, this would batch write to Firestore
+    if (!isFirebaseConfigured) logMockUsage('saveCalendarEvents');
   },
 
-  // --- Chat Persistence ---
-  fetchChatHistory: async (dogId: string): Promise<{ role: 'user' | 'ai', text: string }[]> => {
-    return [];
-  },
+  // ==========================================
+  // SOCIAL & COMMUNITY
+  // ==========================================
 
-  saveChatHistory: async (dogId: string, messages: { role: 'user' | 'ai', text: string }[]): Promise<void> => {
-    // Update firestore doc
-  },
-
-  // --- Media System ---
-  fetchMediaAssets: async (dogId: string): Promise<MediaItem[]> => {
-    return MOCK_MEDIA_LIBRARY; 
-  },
-
-  uploadMediaAsset: async (asset: MediaItem): Promise<void> => {
-    await delay(800); 
-  },
-
-  // --- Health & Vitals ---
-  fetchHealthLogs: async (dogId: string): Promise<HealthEvent[]> => {
-    if (!isFirebaseConfigured) return [];
-    try {
-        const q = query(collection(db, "health_logs"), where("dogId", "==", dogId));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(d => ({id: d.id, ...d.data()} as HealthEvent));
-    } catch (e) {
-        return [];
-    }
-  },
-
-  logHealthEvent: async (event: HealthEvent): Promise<void> => {
-    if (isFirebaseConfigured) {
-        await addDoc(collection(db, "health_logs"), event);
-    }
-  },
-
-  // --- Community ---
   fetchCommunityFeed: async (): Promise<CommunityPost[]> => {
+    if (isFirebaseConfigured) {
+        // fetch from 'posts' collection
+        return MOCK_POSTS;
+    }
     return MOCK_POSTS;
   },
 
   createPost: async (post: CommunityPost): Promise<CommunityPost> => {
-    await delay(300);
+    if (isFirebaseConfigured) {
+        await db.collection("posts").add(post);
+    } else {
+        await simulateLatency(300);
+    }
     return post;
   },
 
   addReaction: async (postId: string, reactionType: Reaction['type']): Promise<void> => {
-    // DB update logic
+    if (isFirebaseConfigured) {
+        // transaction to increment counter
+    }
   },
 
   fetchPacks: async (): Promise<Pack[]> => {
+    // In real app, query 'packs' collection
     return [
       { id: 'p1', name: 'Scottsdale Retrievers', category: 'Breed', image: 'https://images.unsplash.com/photo-1558929996-da64ba858315?auto=format&fit=crop&w=400&q=80', membersCount: 142, isPrivate: false, isMember: true, description: 'Goldens & Labs.' },
       { id: 'p2', name: 'Agility All-Stars', category: 'Training', image: 'https://images.unsplash.com/photo-1535008652995-e95986556e32?auto=format&fit=crop&w=400&q=80', membersCount: 56, isPrivate: true, isMember: false, description: 'Competitive team.' }
     ];
   },
 
-  joinPack: async (packId: string): Promise<void> => { await delay(200); },
-  leavePack: async (packId: string): Promise<void> => { await delay(200); },
-  createPack: async (pack: Pack): Promise<void> => { await delay(200); },
+  joinPack: async (packId: string): Promise<void> => { await simulateLatency(200); },
+  leavePack: async (packId: string): Promise<void> => { await simulateLatency(200); },
+  createPack: async (pack: Pack): Promise<void> => { await simulateLatency(200); },
 
   fetchEvents: async (): Promise<CommunityEvent[]> => {
     return MOCK_EVENTS;
   },
 
-  registerForEvent: async (eventId: string): Promise<void> => { await delay(300); },
+  registerForEvent: async (eventId: string): Promise<void> => { await simulateLatency(300); },
 
   fetchLeaderboard: async (): Promise<LeaderboardEntry[]> => {
+      // In real app, complex aggregation query
       return LEADERBOARD_DATA;
   },
+
+  // ==========================================
+  // MEDIA & ASSETS
+  // ==========================================
+
+  fetchMediaAssets: async (dogId: string): Promise<MediaItem[]> => {
+    if (isFirebaseConfigured) {
+        // Query 'media' collection
+        return MOCK_MEDIA_LIBRARY;
+    }
+    return MOCK_MEDIA_LIBRARY;
+  },
+
+  uploadMediaAsset: async (asset: MediaItem): Promise<void> => {
+    if (isFirebaseConfigured) {
+        await db.collection("media").add(asset);
+    } else {
+        await simulateLatency(800);
+    }
+  },
+
+  // ==========================================
+  // HEALTH & VITALS
+  // ==========================================
+
+  fetchHealthLogs: async (dogId: string): Promise<HealthEvent[]> => {
+    if (isFirebaseConfigured) {
+      try {
+        const snapshot = await db.collection("health_logs")
+            .where("dogId", "==", dogId)
+            .orderBy("timestamp", "desc")
+            .limit(50)
+            .get();
+        return snapshot.docs.map(d => ({id: d.id, ...d.data()} as HealthEvent));
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  },
+
+  logHealthEvent: async (event: HealthEvent): Promise<void> => {
+    if (isFirebaseConfigured) {
+        await db.collection("health_logs").add(event);
+    }
+  },
+
+  // ==========================================
+  // LEARNING
+  // ==========================================
 
   fetchCourses: async (): Promise<Course[]> => {
     return MOCK_COURSES;
   },
 
-  fetchCurriculum: async (): Promise<SkillCategory[]> => {
-    return SKILL_TREE;
+  // ==========================================
+  // CHAT & NOTIFICATIONS
+  // ==========================================
+
+  fetchChatHistory: async (dogId: string): Promise<{ role: 'user' | 'ai', text: string }[]> => {
+    // Implementation would fetch from 'chat_history' collection
+    return [];
+  },
+
+  saveChatHistory: async (dogId: string, messages: { role: 'user' | 'ai', text: string }[]): Promise<void> => {
+    // Implementation would update 'chat_history' document
   },
 
   sendNotification: async (notification: NotificationRecord): Promise<void> => {

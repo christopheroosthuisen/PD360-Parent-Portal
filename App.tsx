@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Sidebar, AppLoadingScreen } from './components/UI';
+import { Sidebar, AppLoadingScreen, Button, Card } from './components/UI';
 import { Dashboard } from './components/Dashboard';
 import { TrainingHub } from './components/TrainingHub';
 import { IzzyChat } from './components/IzzyChat';
@@ -19,7 +19,7 @@ import { NotFound } from './pages/NotFound';
 import { ServerError } from './pages/ServerError';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getCurrentGrade, MOCK_DOGS } from './constants';
-import { Menu } from 'lucide-react';
+import { Menu, Plus, Dog } from 'lucide-react';
 import { DogData } from './types';
 import { CartProvider } from './CartContext';
 import { logSyncData } from './crmSystem';
@@ -36,6 +36,7 @@ const AppContent = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isCreatingDog, setIsCreatingDog] = useState(false);
   
   // Auth state
   const { currentUser, loading: authLoading, logout } = useAuth();
@@ -73,8 +74,11 @@ const AppContent = () => {
         // --- DEV DEMO FALLBACK ---
         // If user has no dogs in DB, load the mock for demonstration purposes
         if (fetchedDogs.length === 0) {
-           setDogs(MOCK_DOGS);
-           setSelectedDogId(MOCK_DOGS[0].id);
+           // For production, we might want to start empty, but for demo continuity:
+           // setDogs(MOCK_DOGS); 
+           // setSelectedDogId(MOCK_DOGS[0].id);
+           // Setting empty to test onboarding flow:
+           setDogs([]);
         } else {
            setDogs(fetchedDogs);
            setSelectedDogId(fetchedDogs[0].id);
@@ -124,6 +128,49 @@ const AppContent = () => {
      await DataService.updateDog(updatedDog.id, updatedDog);
   };
 
+  const handleCreateDog = async () => {
+    if (!currentUser) return;
+    setIsCreatingDog(true);
+    try {
+      // Create a default starter profile
+      const newDogTemplate: Omit<DogData, 'id'> = {
+        crmId: '',
+        accountId: 'acc_' + Date.now(),
+        name: 'My New Dog',
+        breeds: ['Mixed Breed'],
+        birthDate: new Date().toISOString(),
+        sex: 'Male',
+        fixed: false,
+        weight: 0,
+        color: 'Unknown',
+        avatar: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=400&q=80',
+        owner: { id: currentUser.uid, firstName: 'Owner', lastName: '', email: currentUser.email || '', phone: '' },
+        emergencyContact: { firstName: '', lastName: '', phone: '', email: '', relation: '' },
+        notificationSettings: { email: true, push: true, sms: false, marketing: false },
+        currentScore: 0,
+        streak: 0,
+        achievements: [],
+        medications: [],
+        allergies: [],
+        vaccinations: [],
+        homeType: 'House',
+        hasYard: false,
+        siblings: []
+      };
+
+      const newId = await DataService.createDog(newDogTemplate);
+      const createdDog = { ...newDogTemplate, id: newId } as DogData;
+      setDogs([...dogs, createdDog]);
+      setSelectedDogId(newId);
+      setActiveView('profile'); // Send to profile to edit details
+    } catch (e) {
+      console.error("Failed to create dog", e);
+      alert("Could not create profile. Please try again.");
+    } finally {
+      setIsCreatingDog(false);
+    }
+  };
+
   const handleViewChange = (view: string) => {
     setActiveView(view);
     setActiveHubTab(undefined);
@@ -164,10 +211,33 @@ const AppContent = () => {
      return <Auth view="forgot-password" onNavigate={handleViewChange} onLogin={() => setActiveView('dashboard')} />;
   }
 
-  // 3. Protected App View
-  // If no dog loaded yet but authenticated (and loaded), show onboarding or fallback
+  // 3. Protected App View - Onboarding State
   if (currentUser && dogs.length === 0 && isLoaded) {
-     return <div className="flex items-center justify-center h-screen">No Dogs Found. Create One (Feature Coming Soon)</div>;
+     return (
+        <div className="flex flex-col items-center justify-center h-screen bg-pd-lightest p-4">
+           <Card className="max-w-md w-full text-center py-12 px-8">
+              <div className="w-24 h-24 bg-pd-teal rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg text-white">
+                 <Dog size={48} />
+              </div>
+              <h2 className="font-impact text-3xl text-pd-darkblue uppercase mb-2">Welcome to the Pack!</h2>
+              <p className="text-pd-slate font-medium mb-8">It looks like you don't have any dogs set up yet. Let's create your first profile to get started.</p>
+              
+              <Button 
+                variant="primary" 
+                className="w-full !py-4 !text-lg shadow-xl" 
+                onClick={handleCreateDog}
+                disabled={isCreatingDog}
+                icon={Plus}
+              >
+                 {isCreatingDog ? "Creating Profile..." : "Add My Dog"}
+              </Button>
+              
+              <button onClick={handleLogout} className="mt-6 text-sm text-pd-softgrey hover:text-pd-darkblue font-bold uppercase tracking-wide">
+                 Log Out
+              </button>
+           </Card>
+        </div>
+     );
   }
 
   // Fallback for types safety
