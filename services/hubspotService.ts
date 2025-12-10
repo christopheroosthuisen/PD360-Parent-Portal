@@ -15,7 +15,7 @@ import { formatHubSpotContact, formatHubSpotDog, HUBSPOT_OBJECT_TYPE } from '../
  */
 
 const HUBSPOT_API_BASE = 'https://api.hubapi.com/crm/v3/objects';
-const ACCESS_TOKEN = process.env.REACT_APP_HUBSPOT_ACCESS_TOKEN;
+const ACCESS_TOKEN = typeof process !== 'undefined' ? process.env.REACT_APP_HUBSPOT_ACCESS_TOKEN : undefined;
 
 const headers = {
   'Content-Type': 'application/json',

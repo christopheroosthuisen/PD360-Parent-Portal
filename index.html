@@ -60,6 +60,12 @@
         font-family: 'Impact', 'Oswald', sans-serif;
       }
     </style>
+    <script>
+      // Polyfill process.env for browser compatibility
+      if (typeof process === 'undefined') {
+        window.process = { env: {} };
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {

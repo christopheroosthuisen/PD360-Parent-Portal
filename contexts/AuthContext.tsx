@@ -27,7 +27,7 @@ const performSecurityCheck = async (userEmail: string) => {
   if (!isFirebaseConfigured) return;
   try {
     // Basic IP check simulation
-    console.log(`[Security] Session initiated for ${userEmail}`);
+    // console.log(`[Security] Session initiated for ${userEmail}`);
   } catch (error: any) {
     console.warn("Security check bypassed:", error.message);
   }
@@ -81,49 +81,91 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  // --- MOCK HELPERS ---
+  const handleMockLogin = (user: any) => {
+      setCurrentUser(user);
+      localStorage.setItem('pd360_mock_user', JSON.stringify(user));
+  };
+
   // --- AUTH ACTIONS (Compat Syntax) ---
 
   const signup = async (email: string, password: string, fullName?: string) => {
     if (isFirebaseConfigured && auth) {
-      const result = await auth.createUserWithEmailAndPassword(email, password);
-      if (result.user) {
-        await createUserDocument(result.user, { fullName });
-        await performSecurityCheck(email);
+      try {
+        const result = await auth.createUserWithEmailAndPassword(email, password);
+        if (result.user) {
+          // Update profile displayName immediately so it's available in context
+          if (fullName) {
+            await result.user.updateProfile({ displayName: fullName });
+            // Force refresh of the user object to pick up changes
+            await result.user.reload();
+            setCurrentUser(auth.currentUser); 
+          }
+          await createUserDocument(result.user, { fullName });
+          await performSecurityCheck(email);
+        }
+      } catch (error: any) {
+        // Fallback if config is invalid despite check
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/api-key-not-valid' || error.code === 'auth/operation-not-allowed') {
+            console.warn("Firebase Config Error during Signup. Falling back to Mock.");
+            const mockUser = { uid: 'mock_user_id', email, displayName: fullName } as firebase.User;
+            handleMockLogin(mockUser);
+            return;
+        }
+        throw error;
       }
     } else {
       // Mock Implementation
       const mockUser = { uid: 'mock_user_id', email, displayName: fullName } as firebase.User;
-      setCurrentUser(mockUser);
-      localStorage.setItem('pd360_mock_user', JSON.stringify(mockUser));
+      handleMockLogin(mockUser);
     }
   };
 
   const login = async (email: string, password: string) => {
     if (isFirebaseConfigured && auth) {
-      const result = await auth.signInWithEmailAndPassword(email, password);
-      if (result.user) {
-        await performSecurityCheck(result.user.email || email);
+      try {
+        const result = await auth.signInWithEmailAndPassword(email, password);
+        if (result.user) {
+          await performSecurityCheck(result.user.email || email);
+        }
+      } catch (error: any) {
+        // Fallback if config is invalid despite check
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/api-key-not-valid') {
+            console.warn("Firebase Config Error during Login. Falling back to Mock.");
+            const mockUser = { uid: 'mock_user_id', email, displayName: 'Demo User' } as firebase.User;
+            handleMockLogin(mockUser);
+            return;
+        }
+        throw error;
       }
     } else {
       // Mock Implementation
       const mockUser = { uid: 'mock_user_id', email, displayName: 'Demo User' } as firebase.User;
-      setCurrentUser(mockUser);
-      localStorage.setItem('pd360_mock_user', JSON.stringify(mockUser));
+      handleMockLogin(mockUser);
     }
   };
 
   const loginWithGoogle = async () => {
     if (isFirebaseConfigured && auth) {
-      const result = await auth.signInWithPopup(googleProvider);
-      if (result.user) {
-        await createUserDocument(result.user, { fullName: result.user.displayName });
-        await performSecurityCheck(result.user.email || 'google_user');
+      try {
+        const result = await auth.signInWithPopup(googleProvider);
+        if (result.user) {
+          await createUserDocument(result.user, { fullName: result.user.displayName });
+          await performSecurityCheck(result.user.email || 'google_user');
+        }
+      } catch (error: any) {
+         if (error.code === 'auth/invalid-credential' || error.code === 'auth/api-key-not-valid' || error.code === 'auth/operation-not-allowed') {
+            console.warn("Firebase Config Error during Google Auth. Falling back to Mock.");
+            const mockUser = { uid: 'mock_google_id', email: 'google@demo.com', displayName: 'Google User' } as firebase.User;
+            handleMockLogin(mockUser);
+            return;
+         }
+         throw error;
       }
     } else {
       // Mock Implementation
       const mockUser = { uid: 'mock_google_id', email: 'google@demo.com', displayName: 'Google User' } as firebase.User;
-      setCurrentUser(mockUser);
-      localStorage.setItem('pd360_mock_user', JSON.stringify(mockUser));
+      handleMockLogin(mockUser);
     }
   };
 
@@ -142,8 +184,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         confirm: async (code: string) => {
            if (code === '123456') {
              const mockUser = { uid: 'mock_phone_id', phoneNumber: phoneNumber, displayName: 'Phone User' } as firebase.User;
-             setCurrentUser(mockUser);
-             localStorage.setItem('pd360_mock_user', JSON.stringify(mockUser));
+             handleMockLogin(mockUser);
              await performSecurityCheck('phone_user');
              return { user: mockUser };
            }
@@ -156,7 +197,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     if (isFirebaseConfigured && auth) {
-      return auth.signOut();
+      try {
+        await auth.signOut();
+      } catch (e) {
+        console.warn("Sign out error", e);
+        // Even if Firebase fails, clear local state
+        setCurrentUser(null);
+        localStorage.removeItem('pd360_mock_user');
+      }
     } else {
       // Mock Implementation
       setCurrentUser(null);

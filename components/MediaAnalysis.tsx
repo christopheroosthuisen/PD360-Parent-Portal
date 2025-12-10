@@ -72,6 +72,7 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [rawAnalysis, setRawAnalysis] = useState<string | null>(null);
   const [skillSearch, setSkillSearch] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
       const loadLibrary = async () => {
@@ -155,29 +156,40 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
 
   const saveToLibrary = async () => {
     if (!file || !preview) return;
-    const newItem: MediaItem = {
-        id: `media_${Date.now()}`,
-        dogId: dogData.id,
-        type: activeTab,
-        url: preview,
-        thumbnail: preview, 
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        title: `${activeTab === 'video' ? 'Video' : 'Photo'} Analysis`,
-        tags: selectedTags,
-        notes: userNotes,
-        analysis: analysisResult || { mechanics: rawAnalysis }
-    };
+    setIsSaving(true);
     
-    await DataService.uploadMediaAsset(newItem);
-    setLibrary([newItem, ...library]);
-    setSelectedItem(newItem);
-    setView('detail');
-    
-    // Reset upload state
-    setFile(null);
-    setStep(1);
-    setSelectedTags([]);
-    setUserNotes('');
+    try {
+        const tempItem: MediaItem = {
+            id: `media_${Date.now()}`,
+            dogId: dogData.id,
+            type: activeTab,
+            url: preview, // Will be replaced by real URL in service
+            thumbnail: preview, 
+            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            title: `${activeTab === 'video' ? 'Video' : 'Photo'} Analysis`,
+            tags: selectedTags,
+            notes: userNotes,
+            analysis: analysisResult || { mechanics: rawAnalysis }
+        };
+        
+        // Pass file to service to handle Storage upload and get real URL
+        const savedItem = await DataService.uploadMediaAsset(tempItem, file);
+        
+        setLibrary([savedItem, ...library]);
+        setSelectedItem(savedItem);
+        setView('detail');
+        
+        // Reset upload state
+        setFile(null);
+        setStep(1);
+        setSelectedTags([]);
+        setUserNotes('');
+    } catch (error) {
+        console.error("Failed to save", error);
+        alert("Failed to save media. Please try again.");
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const resetUpload = () => {
@@ -448,8 +460,8 @@ export const MediaAnalysis: React.FC<{ dogData: DogData }> = ({ dogData }) => {
                               )}
                            </div>
 
-                           <Button variant="primary" onClick={saveToLibrary} icon={Save} className="w-full !py-4 shadow-lg">
-                              Save to Library
+                           <Button variant="primary" onClick={saveToLibrary} icon={isSaving ? Loader : Save} disabled={isSaving} className="w-full !py-4 shadow-lg">
+                              {isSaving ? "Saving..." : "Save to Library"}
                            </Button>
                         </Card>
                      )}

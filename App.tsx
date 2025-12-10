@@ -38,6 +38,10 @@ const AppContent = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isCreatingDog, setIsCreatingDog] = useState(false);
   
+  // Onboarding State
+  const [onboardingName, setOnboardingName] = useState('');
+  const [onboardingBreed, setOnboardingBreed] = useState('');
+  
   // Auth state
   const { currentUser, loading: authLoading, logout } = useAuth();
 
@@ -72,12 +76,8 @@ const AppContent = () => {
         const fetchedDogs = await DataService.fetchDogs(currentUser.uid);
         
         // --- DEV DEMO FALLBACK ---
-        // If user has no dogs in DB, load the mock for demonstration purposes
+        // If user has no dogs in DB, we leave it empty to trigger onboarding flow
         if (fetchedDogs.length === 0) {
-           // For production, we might want to start empty, but for demo continuity:
-           // setDogs(MOCK_DOGS); 
-           // setSelectedDogId(MOCK_DOGS[0].id);
-           // Setting empty to test onboarding flow:
            setDogs([]);
         } else {
            setDogs(fetchedDogs);
@@ -130,21 +130,39 @@ const AppContent = () => {
 
   const handleCreateDog = async () => {
     if (!currentUser) return;
+    
+    // Basic validation
+    if (!onboardingName.trim()) {
+        alert("Please enter your dog's name.");
+        return;
+    }
+
     setIsCreatingDog(true);
     try {
-      // Create a default starter profile
+      const displayName = currentUser.displayName || 'Owner';
+      const [firstName, ...rest] = displayName.split(' ');
+      const lastName = rest.join(' ');
+
+      // Create profile with user inputs
       const newDogTemplate: Omit<DogData, 'id'> = {
+        ownerId: currentUser.uid, // Root level ID for security/indexing
         crmId: '',
         accountId: 'acc_' + Date.now(),
-        name: 'My New Dog',
-        breeds: ['Mixed Breed'],
+        name: onboardingName,
+        breeds: onboardingBreed ? [onboardingBreed] : ['Mixed Breed'],
         birthDate: new Date().toISOString(),
-        sex: 'Male',
+        sex: 'Male', // Default, editable later
         fixed: false,
         weight: 0,
         color: 'Unknown',
         avatar: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=400&q=80',
-        owner: { id: currentUser.uid, firstName: 'Owner', lastName: '', email: currentUser.email || '', phone: '' },
+        owner: { 
+            id: currentUser.uid, 
+            firstName: firstName || 'Owner', 
+            lastName: lastName || '', 
+            email: currentUser.email || '', 
+            phone: currentUser.phoneNumber || '' 
+        },
         emergencyContact: { firstName: '', lastName: '', phone: '', email: '', relation: '' },
         notificationSettings: { email: true, push: true, sms: false, marketing: false },
         currentScore: 0,
@@ -162,7 +180,7 @@ const AppContent = () => {
       const createdDog = { ...newDogTemplate, id: newId } as DogData;
       setDogs([...dogs, createdDog]);
       setSelectedDogId(newId);
-      setActiveView('profile'); // Send to profile to edit details
+      setActiveView('dashboard'); // Go straight to dashboard after creation
     } catch (e) {
       console.error("Failed to create dog", e);
       alert("Could not create profile. Please try again.");
@@ -183,8 +201,11 @@ const AppContent = () => {
   };
 
   const handleLogout = async () => {
-    if (window.confirm("Are you sure you want to log out?")) {
+    try {
       await logout();
+    } catch (e) {
+      console.error("Logout error", e);
+    } finally {
       setActiveView('login');
     }
   };
@@ -214,22 +235,49 @@ const AppContent = () => {
   // 3. Protected App View - Onboarding State
   if (currentUser && dogs.length === 0 && isLoaded) {
      return (
-        <div className="flex flex-col items-center justify-center h-screen bg-pd-lightest p-4">
-           <Card className="max-w-md w-full text-center py-12 px-8">
-              <div className="w-24 h-24 bg-pd-teal rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg text-white">
+        <div className="flex flex-col items-center justify-center h-screen bg-pd-lightest p-4 relative overflow-hidden">
+           {/* Decorative bg */}
+           <div className="absolute top-0 right-0 w-96 h-96 bg-pd-teal rounded-full opacity-10 -mr-20 -mt-20 blur-3xl"></div>
+           <div className="absolute bottom-0 left-0 w-80 h-80 bg-pd-yellow rounded-full opacity-5 -ml-20 -mb-20 blur-3xl"></div>
+
+           <Card className="max-w-md w-full text-center py-12 px-8 relative z-10 border-4 border-pd-lightest/50">
+              <div className="w-24 h-24 bg-pd-teal rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg text-white ring-4 ring-pd-lightest">
                  <Dog size={48} />
               </div>
               <h2 className="font-impact text-3xl text-pd-darkblue uppercase mb-2">Welcome to the Pack!</h2>
-              <p className="text-pd-slate font-medium mb-8">It looks like you don't have any dogs set up yet. Let's create your first profile to get started.</p>
+              <p className="text-pd-slate font-medium mb-8">Let's get started by creating a profile for your dog.</p>
               
+              <div className="space-y-4 mb-8 text-left">
+                  <div>
+                      <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider mb-1 block">Dog's Name</label>
+                      <input 
+                          type="text" 
+                          placeholder="e.g. Barnaby" 
+                          value={onboardingName}
+                          onChange={(e) => setOnboardingName(e.target.value)}
+                          className="w-full p-4 bg-pd-lightest/30 border-2 border-pd-lightest rounded-xl focus:border-pd-teal outline-none font-medium text-pd-darkblue transition-colors text-lg"
+                      />
+                  </div>
+                  <div>
+                      <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider mb-1 block">Breed (Optional)</label>
+                      <input 
+                          type="text" 
+                          placeholder="e.g. Golden Retriever" 
+                          value={onboardingBreed}
+                          onChange={(e) => setOnboardingBreed(e.target.value)}
+                          className="w-full p-4 bg-pd-lightest/30 border-2 border-pd-lightest rounded-xl focus:border-pd-teal outline-none font-medium text-pd-darkblue transition-colors text-lg"
+                      />
+                  </div>
+              </div>
+
               <Button 
                 variant="primary" 
                 className="w-full !py-4 !text-lg shadow-xl" 
                 onClick={handleCreateDog}
-                disabled={isCreatingDog}
+                disabled={isCreatingDog || !onboardingName.trim()}
                 icon={Plus}
               >
-                 {isCreatingDog ? "Creating Profile..." : "Add My Dog"}
+                 {isCreatingDog ? "Creating Profile..." : "Create Profile"}
               </Button>
               
               <button onClick={handleLogout} className="mt-6 text-sm text-pd-softgrey hover:text-pd-darkblue font-bold uppercase tracking-wide">

@@ -8,10 +8,11 @@ import {
   DogData, Product, Coach, CommunityEvent, CommunityPost, 
   Facility, ServiceOption, AddOn, SkillCategory, Course, 
   SiteConfig, TrainingPlan, TrainingSessionRecord, MediaItem, HealthEvent, 
-  NotificationRecord, Pack, LeaderboardEntry, Reaction, Reservation, CartItem, CalendarEvent
+  NotificationRecord, Pack, LeaderboardEntry, Reaction, Reservation, CartItem, CalendarEvent, SupportTicket
 } from '../types';
-import { db, isFirebaseConfigured } from '../firebaseConfig';
+import { db, storage, isFirebaseConfigured } from '../firebaseConfig';
 import { HubSpotService } from './hubspotService';
+import firebase from 'firebase/compat/app';
 
 /**
  * DataService acts as the unified data layer.
@@ -27,6 +28,29 @@ const logMockUsage = (method: string) => {
   // console.debug(`[DataService] ${method}: Using Mock Data (Firebase not configured)`);
 };
 
+// Helper to convert Firestore timestamps to ISO strings
+const convertFirestoreData = (data: any): any => {
+  if (!data) return data;
+  
+  if (data instanceof firebase.firestore.Timestamp) {
+    return data.toDate().toISOString();
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(item => convertFirestoreData(item));
+  }
+  
+  if (typeof data === 'object') {
+    const newData: any = {};
+    for (const key in data) {
+      newData[key] = convertFirestoreData(data[key]);
+    }
+    return newData;
+  }
+  
+  return data;
+};
+
 export const DataService = {
   
   // ==========================================
@@ -38,9 +62,15 @@ export const DataService = {
 
     if (isFirebaseConfigured) {
       try {
-        const snapshot = await db.collection("dogs").where("owner.id", "==", userId).get();
+        // Query by ownerId at the root level for indexing performance
+        const snapshot = await db.collection("dogs").where("ownerId", "==", userId).get();
         if (snapshot.empty) return [];
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DogData));
+        
+        return snapshot.docs.map(doc => {
+          const rawData = doc.data();
+          const convertedData = convertFirestoreData(rawData);
+          return { id: doc.id, ...convertedData } as DogData;
+        });
       } catch (e) {
         console.error("Error fetching dogs:", e);
         return []; 
@@ -55,10 +85,18 @@ export const DataService = {
   createDog: async (dogData: Omit<DogData, 'id'>): Promise<string> => {
     if (isFirebaseConfigured) {
       try {
+        // Ensure critical root-level fields exist
+        const enrichedData = {
+          ...dogData,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
         // 1. Create in Firestore
-        const docRef = await db.collection("dogs").add(dogData);
+        const docRef = await db.collection("dogs").add(enrichedData);
         
         // 2. Sync to HubSpot (Background)
+        // Note: We use the local dogData which has the ISO string for creation to avoid Timestamp issues in the Hubspot payload initially
         HubSpotService.syncData({ ...dogData, id: docRef.id } as DogData)
           .catch(err => console.error("HubSpot Sync Failed", err));
 
@@ -78,12 +116,20 @@ export const DataService = {
     if (isFirebaseConfigured) {
       try {
         const dogRef = db.collection("dogs").doc(dogId);
-        await dogRef.update(data);
+        
+        const updatePayload = {
+          ...data,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        await dogRef.update(updatePayload);
         
         // Sync update to HubSpot
         const snap = await dogRef.get();
         if (snap.exists) {
-            HubSpotService.syncData({ id: snap.id, ...snap.data() } as DogData)
+            const rawData = snap.data();
+            const convertedData = convertFirestoreData(rawData);
+            HubSpotService.syncData({ id: snap.id, ...convertedData } as DogData)
               .catch(err => console.error("HubSpot Sync Failed", err));
         }
       } catch (e) {
@@ -92,6 +138,23 @@ export const DataService = {
     } else {
       logMockUsage('updateDog');
       // No-op for mock
+    }
+  },
+
+  uploadAvatar: async (dogId: string, file: File): Promise<string> => {
+    if (isFirebaseConfigured) {
+        try {
+            const storageRef = storage.ref(`avatars/${dogId}/${Date.now()}_${file.name}`);
+            const snapshot = await storageRef.put(file);
+            const downloadURL = await snapshot.ref.getDownloadURL();
+            return downloadURL;
+        } catch (e) {
+            console.error("Avatar upload failed", e);
+            throw e;
+        }
+    } else {
+        await simulateLatency(800);
+        return URL.createObjectURL(file); // Temporary blob for mock
     }
   },
 
@@ -126,7 +189,11 @@ export const DataService = {
   createShopOrder: async (userId: string, items: CartItem[], total: number): Promise<void> => {
     if (isFirebaseConfigured) {
       await db.collection("orders").add({
-        userId, items, total, status: 'pending', createdAt: new Date().toISOString()
+        userId, 
+        items, 
+        total, 
+        status: 'pending', 
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } else {
       logMockUsage('createShopOrder');
@@ -143,7 +210,12 @@ export const DataService = {
   bookCoachingSession: async (userId: string, coachId: string, slotId: string, type: 'virtual' | 'in-person'): Promise<void> => {
     if (isFirebaseConfigured) {
       await db.collection("coaching_sessions").add({
-          userId, coachId, slotId, type, status: 'scheduled', bookedAt: new Date().toISOString()
+          userId, 
+          coachId, 
+          slotId, 
+          type, 
+          status: 'scheduled', 
+          bookedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } else {
       logMockUsage('bookCoachingSession');
@@ -164,7 +236,7 @@ export const DataService = {
       await db.collection("reservations").add({
           ...reservation,
           status: 'pending',
-          createdAt: new Date().toISOString()
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } else {
       logMockUsage('createReservation');
@@ -186,7 +258,9 @@ export const DataService = {
           .get();
           
         if (!snapshot.empty) {
-            return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as TrainingPlan;
+            const rawData = snapshot.docs[0].data();
+            const convertedData = convertFirestoreData(rawData);
+            return { id: snapshot.docs[0].id, ...convertedData } as TrainingPlan;
         }
       } catch (e) { return null; }
     }
@@ -195,13 +269,22 @@ export const DataService = {
 
   saveTrainingPlan: async (plan: TrainingPlan): Promise<void> => {
     if (isFirebaseConfigured) {
-        await db.collection("training_plans").add(plan);
+        // Ensure plan has timestamp
+        const planWithTimestamp = {
+            ...plan,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection("training_plans").add(planWithTimestamp);
     }
   },
 
   logTrainingSession: async (session: TrainingSessionRecord): Promise<void> => {
     if (isFirebaseConfigured) {
-        await db.collection("training_sessions").add(session);
+        const sessionWithTimestamp = {
+            ...session,
+            date: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection("training_sessions").add(sessionWithTimestamp);
     }
   },
 
@@ -218,6 +301,7 @@ export const DataService = {
     // Mix of Real (User logged) and Mock (Community/Static) events
     const communityEvents = MOCK_EVENTS.map((evt, idx) => ({
        id: `comm_${evt.id}`,
+       dogId: dogId, // Assign current context dogId to mock events
        date: new Date(new Date().setDate(new Date().getDate() + (idx * 3) + 2)).toISOString().split('T')[0],
        title: evt.title,
        type: 'community' as const,
@@ -227,17 +311,44 @@ export const DataService = {
     }));
 
     if (isFirebaseConfigured) {
-        // Fetch user specific events from DB here and merge
-        // const userEvents = ...
-        return communityEvents; 
+        try {
+          const snapshot = await db.collection("calendar_events")
+            .where("dogId", "==", dogId) 
+            .get();
+          
+          const userEvents = snapshot.docs.map(doc => {
+              const data = convertFirestoreData(doc.data());
+              return { id: doc.id, ...data } as CalendarEvent;
+          });
+          return [...communityEvents, ...userEvents];
+        } catch (e) {
+          console.error("Error fetching calendar events", e);
+          return communityEvents;
+        }
     }
     
     return communityEvents;
   },
 
   saveCalendarEvents: async (events: CalendarEvent[]): Promise<void> => {
-    // In a real app, this would batch write to Firestore
-    if (!isFirebaseConfigured) logMockUsage('saveCalendarEvents');
+    if (isFirebaseConfigured) {
+      const batch = db.batch();
+      events.forEach(evt => {
+        // Only save new events or updated ones
+        if (!evt.id.startsWith('comm_')) {
+           // Check if it's a new event generated by the UI
+           const docRef = db.collection("calendar_events").doc(evt.id); 
+           batch.set(docRef, evt, { merge: true });
+        }
+      });
+      try {
+        await batch.commit();
+      } catch(e) {
+        console.error("Batch save failed", e);
+      }
+    } else {
+      logMockUsage('saveCalendarEvents');
+    }
   },
 
   // ==========================================
@@ -246,15 +357,28 @@ export const DataService = {
 
   fetchCommunityFeed: async (): Promise<CommunityPost[]> => {
     if (isFirebaseConfigured) {
-        // fetch from 'posts' collection
+      try {
+        const snapshot = await db.collection("posts").orderBy("createdAt", "desc").limit(20).get();
+        const realPosts = snapshot.docs.map(doc => {
+            const data = convertFirestoreData(doc.data());
+            return { id: doc.id, ...data } as CommunityPost;
+        });
+        return [...realPosts, ...MOCK_POSTS]; // Mix for demo purposes
+      } catch (e) {
+        console.error("Error fetching feed", e);
         return MOCK_POSTS;
+      }
     }
     return MOCK_POSTS;
   },
 
   createPost: async (post: CommunityPost): Promise<CommunityPost> => {
     if (isFirebaseConfigured) {
-        await db.collection("posts").add(post);
+        const postWithTimestamp = {
+            ...post,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection("posts").add(postWithTimestamp);
     } else {
         await simulateLatency(300);
     }
@@ -263,12 +387,24 @@ export const DataService = {
 
   addReaction: async (postId: string, reactionType: Reaction['type']): Promise<void> => {
     if (isFirebaseConfigured) {
-        // transaction to increment counter
+        // In a real app: Firestore transaction to increment counter in subcollection or array
+        // For simple apps, update array is OK but race conditions exist.
     }
   },
 
   fetchPacks: async (): Promise<Pack[]> => {
-    // In real app, query 'packs' collection
+    if (isFirebaseConfigured) {
+      try {
+        const snapshot = await db.collection("packs").get();
+        if (!snapshot.empty) {
+           return snapshot.docs.map(doc => {
+               const data = convertFirestoreData(doc.data());
+               return { id: doc.id, ...data } as Pack;
+           });
+        }
+      } catch (e) { console.error(e); }
+    }
+    
     return [
       { id: 'p1', name: 'Scottsdale Retrievers', category: 'Breed', image: 'https://images.unsplash.com/photo-1558929996-da64ba858315?auto=format&fit=crop&w=400&q=80', membersCount: 142, isPrivate: false, isMember: true, description: 'Goldens & Labs.' },
       { id: 'p2', name: 'Agility All-Stars', category: 'Training', image: 'https://images.unsplash.com/photo-1535008652995-e95986556e32?auto=format&fit=crop&w=400&q=80', membersCount: 56, isPrivate: true, isMember: false, description: 'Competitive team.' }
@@ -277,7 +413,13 @@ export const DataService = {
 
   joinPack: async (packId: string): Promise<void> => { await simulateLatency(200); },
   leavePack: async (packId: string): Promise<void> => { await simulateLatency(200); },
-  createPack: async (pack: Pack): Promise<void> => { await simulateLatency(200); },
+  createPack: async (pack: Pack): Promise<void> => { 
+    if (isFirebaseConfigured) {
+      await db.collection("packs").add(pack);
+    } else {
+      await simulateLatency(200); 
+    }
+  },
 
   fetchEvents: async (): Promise<CommunityEvent[]> => {
     return MOCK_EVENTS;
@@ -296,18 +438,56 @@ export const DataService = {
 
   fetchMediaAssets: async (dogId: string): Promise<MediaItem[]> => {
     if (isFirebaseConfigured) {
-        // Query 'media' collection
-        return MOCK_MEDIA_LIBRARY;
+        try {
+          const snapshot = await db.collection("media")
+            .where("dogId", "==", dogId)
+            .orderBy("date", "desc")
+            .get();
+          return snapshot.docs.map(doc => {
+              const data = convertFirestoreData(doc.data());
+              return { id: doc.id, ...data } as MediaItem;
+          });
+        } catch (e) {
+          console.error("Error fetching media", e);
+          return MOCK_MEDIA_LIBRARY;
+        }
     }
     return MOCK_MEDIA_LIBRARY;
   },
 
-  uploadMediaAsset: async (asset: MediaItem): Promise<void> => {
-    if (isFirebaseConfigured) {
-        await db.collection("media").add(asset);
+  uploadMediaAsset: async (asset: MediaItem, file?: File): Promise<MediaItem> => {
+    let finalAsset = { ...asset };
+
+    if (isFirebaseConfigured && file) {
+        try {
+          // 1. Upload File to Storage
+          const storageRef = storage.ref(`media/${asset.dogId}/${Date.now()}_${file.name}`);
+          const snapshot = await storageRef.put(file);
+          const downloadURL = await snapshot.ref.getDownloadURL();
+
+          // 2. Save Metadata to Firestore with Real URL
+          finalAsset = { 
+              ...asset, 
+              url: downloadURL, 
+              thumbnail: downloadURL 
+          };
+          
+          const docRef = await db.collection("media").add(finalAsset);
+          finalAsset.id = docRef.id;
+
+        } catch (e) {
+          console.error("Upload failed", e);
+          throw e;
+        }
+    } else if (isFirebaseConfigured && !file) {
+        // Metadata only save
+        const docRef = await db.collection("media").add(asset);
+        finalAsset.id = docRef.id;
     } else {
         await simulateLatency(800);
     }
+    
+    return finalAsset;
   },
 
   // ==========================================
@@ -322,7 +502,10 @@ export const DataService = {
             .orderBy("timestamp", "desc")
             .limit(50)
             .get();
-        return snapshot.docs.map(d => ({id: d.id, ...d.data()} as HealthEvent));
+        return snapshot.docs.map(d => {
+            const data = convertFirestoreData(d.data());
+            return { id: d.id, ...data } as HealthEvent;
+        });
       } catch (e) {
         return [];
       }
@@ -349,15 +532,114 @@ export const DataService = {
   // ==========================================
 
   fetchChatHistory: async (dogId: string): Promise<{ role: 'user' | 'ai', text: string }[]> => {
-    // Implementation would fetch from 'chat_history' collection
+    if (isFirebaseConfigured) {
+      try {
+        const doc = await db.collection("chats").doc(dogId).get();
+        if (doc.exists) {
+          return doc.data()?.messages || [];
+        }
+      } catch (e) { console.error(e); }
+    }
     return [];
   },
 
   saveChatHistory: async (dogId: string, messages: { role: 'user' | 'ai', text: string }[]): Promise<void> => {
-    // Implementation would update 'chat_history' document
+    if (isFirebaseConfigured) {
+      await db.collection("chats").doc(dogId).set({ messages }, { merge: true });
+    }
   },
 
   sendNotification: async (notification: NotificationRecord): Promise<void> => {
      console.log(`[Notification] ${notification.message}`);
+  },
+
+  // ==========================================
+  // SUPPORT & TICKETS (HubSpot Integration)
+  // ==========================================
+
+  fetchUserTickets: async (userId: string): Promise<SupportTicket[]> => {
+    // In production, call your Cloud Function endpoint
+    
+    if (isFirebaseConfigured) {
+       try {
+         const snapshot = await db.collection("tickets").where("userId", "==", userId).get();
+         if (!snapshot.empty) {
+            return snapshot.docs.map(d => {
+                const data = convertFirestoreData(d.data());
+                return { id: d.id, ...data } as SupportTicket;
+            });
+         }
+       } catch (e) { console.error("Error fetching tickets", e); }
+    }
+    
+    // Default Mock Data if empty or error
+    await simulateLatency(600);
+    return [
+      {
+        id: 'hs_123',
+        subject: 'My login isn\'t working',
+        category: 'Technical/Billing',
+        description: 'I cannot access my profile.',
+        status: 'closed',
+        createdAt: '2023-10-20T10:00:00Z',
+        lastUpdated: '2023-10-21T14:30:00Z',
+        pipeline: 'Support'
+      },
+      {
+        id: 'hs_456',
+        subject: 'Recall training help needed',
+        category: 'Training Advice',
+        description: 'Barnaby ignores me at the park.',
+        status: 'waiting',
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        lastUpdated: new Date().toISOString(),
+        pipeline: 'Client Success'
+      }
+    ];
+  },
+
+  uploadSupportEvidence: async (file: File): Promise<string> => {
+    if (isFirebaseConfigured) {
+      try {
+        const storageRef = storage.ref(`support_evidence/${Date.now()}_${file.name}`);
+        const snapshot = await storageRef.put(file);
+        return await snapshot.ref.getDownloadURL();
+      } catch (e) {
+        console.error("Evidence upload failed", e);
+        throw new Error("Upload failed");
+      }
+    }
+    
+    // Mock Fallback
+    await simulateLatency(1500); 
+    return `https://firebasestorage.googleapis.com/v0/b/partners-life-mock/o/${file.name}?alt=media&token=mock-token`;
+  },
+
+  createSupportTicket: async (ticket: Omit<SupportTicket, 'id' | 'status' | 'createdAt' | 'lastUpdated'>): Promise<SupportTicket> => {
+    const newTicket: SupportTicket = {
+      id: `hs_${Date.now()}`,
+      ...ticket,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    };
+
+    if (isFirebaseConfigured) {
+        const ticketWithTimestamp = {
+            ...newTicket,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection("tickets").add(ticketWithTimestamp);
+    } else {
+        await simulateLatency(1000);
+    }
+
+    console.group("🚀 HubSpot Ticket Created");
+    console.log("Pipeline:", ticket.pipeline);
+    console.log("Payload:", newTicket);
+    console.groupEnd();
+
+    return newTicket;
   }
 };

@@ -34,6 +34,12 @@ export const MOCK_SITE_CONFIG: SiteConfig = {
   }
 };
 
+// --- INFRASTRUCTURE AS CODE: RAW SCHEMA SOURCE ---
+// This string is parsed by SchemaService to generate the "Assessment" UI dynamically.
+export const RAW_PD360_HEADERS = `
+"Ticket ID","Ticket name","Ticket status","Create date","Ticket owner","[130/650] PD360 Total Score","[50/250] PD360 Obedience","[17/85] PD360 Social Behavior","[20/100] PD360 Inappropriate","[18/90] PD360 Stressors & Triggers","[25/125] PD360 Tricks","Location","IB_Aggressive Behavior_TC","IB_Barking_E","IB_Barrier/Fence Reactivity_PS","IB_Correction Marker (No!)_PS","IB_CounterSurfing_FC","IB_Destructiveness_K","IB_E-Collar_E","IB_Escaping/Bolting_K","IB_Growling_BC","IB_Insecurity_E","IB_Jumping_E","IB_Lunging_BC","IB_Mounting_E","IB_Mouthing (Gentle)_PS","IB_Muzzle_E","IB_Nipping_FC","IB_OCD_FC","IB_Opportunistic Issues_E","IB_Possessive (Protective/Territorial)_BC","IB_Potty In The House_PS","IB_Pulling_K","IB_Resource Guarding_BC","IB_Separation Anxiety_PS","OB_Advanced Turns_HS","OB_Back Up_E","OB_Bow_C","OB_Bye_HS","OB_Calm Greetings_E","OB_Catch (Ball, Tug or Treat)_M","OB_Close Door_C","OB_Crate/Kennel_PS","OB_Distance Commands_C","OB_Done_E","OB_Down_PS","OB_Figure 8_M","OB_Flip to Heel_MS","OB_Free_K","OB_Freestyle Bridging_M","OB_Handoff Protocol_K","OB_Heel_K","OB_Impulse Control Response_K","OB_Leash_PS","OB_Leave It_E","OB_Left about 180_K","OB_Look (Left, Right, Up, Down, Backwards)_M","OB_Middle Position (Between Legs)_C","OB_Name Recognition_PS","OB_Off Leash Commands_MS","OB_Off_E","OB_On The Move Commands_C","OB_Open Door_C","OB_Orbit_M","OB_Out_MS","OB_Pacing_HS","OB_Place_K","OB_Put Away Toys/Clothes_M","OB_Recall (Come/Front)_K","OB_Recall To Heel_E","OB_Reset_E","OB_Retrieve objects (Leash, Glasses Case, Bottle, Etc.)_C","OB_Reward Marker (Yes!)_PS","OB_Right Side Position_M","OB_Right About 180_K","OB_Ring Bell To Go Outside Response_C","OB_Send Out (Directional W/ Touch Pads)_C","OB_Sit_PS","OB_Stand_MS","OB_Standing Pivots_HS","OB_Stay_K","OB_Threshold Protocol_K","OB_Turn Off Lights_M","OB_Watch_PS","OB_Wipe The Floor_M","SB_Appropriate Play_K","SB_Baby/Children_HS","SB_Car Socialization (In/Out of Car)_MS","SB_Cats_HS","SB_Confidence Building_PS","SB_Environment_PS","SB_Females_PS","SB_Grooming Desensitization_MS","SB_Large Dogs_PS","SB_Males_PS","SB_Medical Socialization (Taking Vitals)_HS","SB_Other Animals (Birds, Bunnies, Etc.)_HS","SB_Personal Space_PS","SB_Small Dogs_PS","SB_Social Cues_PS","SB_Textures_K","ST_Body Stiffening","ST_Confinement_PS","ST_Corrections_PS","ST_Ears Flattening","ST_Furniture_PS","ST_Handling_K","ST_High Energy_PS","ST_Lip Licking","ST_Loud/Unusual Sounds_PS","ST_Movement_PS","ST_Owner/Family_BC","ST_Pet Sibling_PS","ST_Prey/Chase_PS","ST_Shy/Shaking/Cowers","ST_Spatial Boundaries_E","ST_Strangers_PS","ST_Teeth Chattering","ST_Whale Eye","TR_Catch a Frisbee/Disc_D","TR_Counting_D","TR_Crawl_MS","TR_Cross Paws_D","TR_Dance_M","TR_High Five_HS","TR_Hug_HS","TR_Jump Through Arms_D","TR_Jump Through Hoop_D","TR_Kiss_M","TR_Leg Jump_D","TR_Leg Weaves_D","TR_Limp_D","TR_Play Dead (Bang!)_C","TR_Pup in a Blanket_D","TR_Rollover_MS","TR_Shake/Paw_K","TR_Shuffle_D","TR_Sit Pretty_C","TR_Skateboard_D","TR_Speak_HS","TR_Spin_PS","TR_Tell A Secret_M","TR_Touch_E","TR_Wave Response_M"
+`;
+
 // --- Grades ---
 export const GRADE_THRESHOLDS: Grade[] = [
   { name: "Pre-School", minScore: 0, color: "text-blue-600", bg: "bg-blue-100", bar: "bg-blue-500" },
@@ -262,8 +268,8 @@ export const BEHAVIOR_TIPS: Record<string, Record<number, string>> = {
 // --- Media ---
 export const BEHAVIOR_TAGS = ['Sit', 'Down', 'Place', 'Heel', 'Recall', 'Play', 'Aggression', 'Anxiety'];
 export const MOCK_MEDIA_LIBRARY: MediaItem[] = [
-  { id: 'm1', type: 'video', url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', thumbnail: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', date: 'Oct 20', title: 'Place Command Session', tags: ['Place', 'Duration'], notes: 'Held for 2 mins.' },
-  { id: 'm2', type: 'photo', url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', thumbnail: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', date: 'Oct 18', title: 'Park Exposure', tags: ['Social', 'Environment'], notes: 'Relaxed body language.' }
+  { id: 'm1', dogId: 'd1', type: 'video', url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', thumbnail: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80', date: 'Oct 20', title: 'Place Command Session', tags: ['Place', 'Duration'], notes: 'Held for 2 mins.' },
+  { id: 'm2', dogId: 'd1', type: 'photo', url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', thumbnail: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', date: 'Oct 18', title: 'Park Exposure', tags: ['Social', 'Environment'], notes: 'Relaxed body language.' }
 ];
 
 // --- Shop ---
@@ -337,6 +343,7 @@ export const SHOP_INVENTORY: Product[] = [
 export const MOCK_DOGS: DogData[] = [
   {
     id: "d1",
+    ownerId: "o1",
     crmId: "crm_12345",
     accountId: "acc_98765",
     name: "Barnaby",
@@ -356,6 +363,7 @@ export const MOCK_DOGS: DogData[] = [
     streak: 12,
     lastSync: "Today, 9:00 AM",
     achievements: ACHIEVEMENTS_MOCK,
+    assessmentScores: {}, // Empty for mock
     medications: [],
     allergies: ["Chicken"],
     veterinarian: { name: "Dr. Smith", clinicName: "Valley Vet", phone: "(555) 555-5555" },
@@ -372,6 +380,7 @@ export const MOCK_DOGS: DogData[] = [
   },
   {
     id: "d2",
+    ownerId: "o1",
     crmId: "crm_67890",
     accountId: "acc_98765",
     name: "Luna",
@@ -389,6 +398,7 @@ export const MOCK_DOGS: DogData[] = [
     currentScore: 150,
     streak: 3,
     achievements: [ACHIEVEMENTS_MOCK[0]],
+    assessmentScores: {}, // Empty for mock
     medications: [{
       id: "m_luna_1",
       name: "Fluoxetine",
@@ -408,5 +418,40 @@ export const MOCK_DOGS: DogData[] = [
     homeType: "House",
     hasYard: true,
     siblings: [{ name: "Barnaby", type: "Dog" }]
+  }
+];
+
+// --- SUPPORT AI DEFLECTION DATABASE ---
+export const SMART_FAQS: { keywords: string[], question: string, answer: string, linkText?: string, linkUrl?: string }[] = [
+  {
+    keywords: ['cancel', 'refund', 'subscription', 'upgrade', 'downgrade', 'billing', 'charge'],
+    question: "How do I manage my subscription or billing?",
+    answer: "You can manage your subscription tier and billing details directly through the 'Coach' tab in the Izzy chat window (bottom right) or by visiting the facility front desk.",
+    linkText: "View Subscription Options",
+    linkUrl: "/support"
+  },
+  {
+    keywords: ['upload', 'video', 'fail', 'error', 'size', 'format'],
+    question: "Trouble uploading training videos?",
+    answer: "Ensure your video is in MP4 or MOV format and under 50MB. If you're on a slow connection, try compressing the video first or uploading via Wi-Fi.",
+  },
+  {
+    keywords: ['password', 'reset', 'login', 'account', 'email'],
+    question: "Resetting your password?",
+    answer: "You can reset your password from the login screen by clicking 'Forgot Password'. If you're logged in, go to your Profile > Account Settings.",
+  },
+  {
+    keywords: ['boarding', 'reservation', 'book', 'stay', 'kennel'],
+    question: "Questions about boarding reservations?",
+    answer: "You can book, modify, or view boarding details in the 'Marketplace' > 'Spots' tab. For urgent cancellations <24hrs, please call the facility directly.",
+    linkText: "Go to Booking",
+    linkUrl: "/marketplace"
+  },
+  {
+    keywords: ['homework', 'plan', 'schedule', 'training'],
+    question: "Where is my training plan?",
+    answer: "Your personalized weekly training plan is located in the 'Training Hub' under the 'Schedule' tab. You can regenerate it anytime.",
+    linkText: "Go to Training Hub",
+    linkUrl: "/training_hub"
   }
 ];

@@ -1,18 +1,20 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+
 export const generateContent = async (
   prompt: string,
   model: string = "gemini-2.5-flash",
   systemInstruction?: string,
   media?: { mimeType: string; data: string }
 ): Promise<string> => {
-  if (!process.env.API_KEY) {
+  if (!apiKey) {
     console.error("API Key is missing");
     return "I'm currently unable to access the PD360 knowledge base (Missing API Key).";
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
 
   try {
     const parts: any[] = [];
@@ -45,9 +47,9 @@ export const generateContent = async (
 };
 
 export const generateImage = async (prompt: string): Promise<string | null> => {
-  if (!process.env.API_KEY) return null;
+  if (!apiKey) return null;
   
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
 
   try {
     const response = await ai.models.generateContent({

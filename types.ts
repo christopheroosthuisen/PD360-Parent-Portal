@@ -26,6 +26,30 @@ export interface SiteConfig {
   };
 }
 
+// --- Dynamic Schema Types (Infrastructure-as-Code) ---
+export interface SchemaField {
+  label: string;
+  key: string;
+  is_liability?: boolean;
+  max_points?: number;
+}
+
+export interface SchemaCategory {
+  label: string;
+  description: string;
+  fields: SchemaField[];
+}
+
+export interface PD360Schema {
+  meta: {
+    version: string;
+    source_file: string;
+  };
+  categories: {
+    [key: string]: SchemaCategory;
+  };
+}
+
 export interface Grade {
   name: string;
   minScore: number;
@@ -197,10 +221,11 @@ export interface Reservation {
   status: 'pending' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled';
   paymentStatus: 'paid' | 'deposit-paid' | 'unpaid';
   confirmationCode?: string;
+  createdAt?: string;
 }
 
 export interface OwnerProfile {
-  id: string; // CRM Contact ID
+  id: string; // CRM Contact ID / Auth ID
   firstName: string;
   lastName: string;
   email: string;
@@ -231,7 +256,8 @@ export interface AssignedTrainer {
 }
 
 export interface DogData {
-  id: string; // Internal App ID
+  id: string; // Internal App ID (Firestore Document ID)
+  ownerId: string; // Root level ID for security rules and indexing
   crmId: string; // HubSpot/CRM Object ID
   accountId: string; // Family/Household Account ID
   
@@ -244,7 +270,7 @@ export interface DogData {
   color: string;
   avatar: string;
   
-  // Owner Info
+  // Owner Info (Denormalized for easy display, but ownerId is authority)
   owner: OwnerProfile;
   emergencyContact: EmergencyContact;
   notificationSettings: NotificationSettings;
@@ -259,6 +285,9 @@ export interface DogData {
   lastSync?: string;
   achievements: Achievement[];
   
+  // Dynamic Assessment Scores (from PD360 CSV Schema)
+  assessmentScores?: Record<string, string | number>;
+
   // Medical
   medications: Medication[];
   allergies: string[];
@@ -281,6 +310,10 @@ export interface DogData {
   
   // Reservations
   reservations?: Reservation[];
+
+  // Meta
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Note {
@@ -321,6 +354,7 @@ export interface TrainingTask {
 
 export interface CalendarEvent {
   id: string;
+  dogId: string; // Added for data structure integrity
   date: string; // ISO YYYY-MM-DD
   title: string;
   type: EventType;
@@ -513,7 +547,7 @@ export interface LeaderboardEntry {
 // DB Table: media_library
 export interface MediaItem {
   id: string;
-  dogId?: string;
+  dogId: string;
   type: 'photo' | 'video';
   url: string;
   thumbnail: string;
@@ -587,7 +621,7 @@ export interface VomitLog {
 // DB Table: health_logs
 export interface HealthEvent {
   id: string;
-  dogId?: string;
+  dogId: string;
   timestamp: string; // ISO string
   type: 'MEAL' | 'ELIMINATION_PEE' | 'ELIMINATION_POOP' | 'VOMIT' | 'MEDICATION' | 'WATER' | 'ACTIVITY' | 'SEIZURE';
   
@@ -612,6 +646,7 @@ export interface MetabolicProfile {
 export interface NotificationRecord {
   id: string;
   userId: string;
+  dogId?: string; // Optional context
   type: 'EMAIL' | 'SMS' | 'PUSH';
   title: string;
   message: string;
@@ -678,4 +713,22 @@ export interface StudyModule {
   title: string;
   focus: string;
   resources: StudyResource[];
+}
+
+// --- Support / Service Hub Types ---
+export type SupportCategory = 'Training Advice' | 'Technical/Billing' | 'General';
+
+// HubSpot standard ticket stages often map to these concepts
+export type TicketStatus = 'new' | 'waiting' | 'in_progress' | 'closed';
+
+export interface SupportTicket {
+  id: string; // HubSpot Ticket ID
+  subject: string;
+  category: SupportCategory;
+  description: string;
+  status: TicketStatus;
+  createdAt: string;
+  lastUpdated: string;
+  videoUrl?: string; // Evidence
+  pipeline?: 'Client Success' | 'Support'; // Internal routing
 }

@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { DogData, OwnerProfile, EmergencyContact, NotificationSettings } from '../types';
 import { Button, Card } from './UI';
-import { Camera, Save, Plus, X, Pill, Utensils, Home, Heart, Dog, Stethoscope, Syringe, Trash2, Phone, MapPin, User, Lock, Bell, Mail, MessageSquare, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Camera, Save, Plus, X, Pill, Utensils, Home, Heart, Dog, Stethoscope, Syringe, Trash2, Phone, MapPin, User, Lock, Bell, Mail, MessageSquare, ShieldAlert, AlertTriangle, Loader, ClipboardCheck } from 'lucide-react';
+import { DataService } from '../services/dataService';
+import { Assessment } from './Assessment';
 
 interface DogProfileProps {
   dog: DogData;
@@ -12,9 +14,10 @@ interface DogProfileProps {
 export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
   const [formData, setFormData] = useState<DogData>({ ...dog });
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'notifications'>('profile');
+  const [isUploading, setIsUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'assessment' | 'account' | 'notifications'>('profile');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ... (keep all existing handlers)
   const handleChange = (field: keyof DogData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -113,6 +116,27 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
     return age;
   };
 
+  const triggerFileUpload = () => {
+      if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          setIsUploading(true);
+          try {
+              const url = await DataService.uploadAvatar(dog.id, e.target.files[0]);
+              setFormData(prev => ({ ...prev, avatar: url }));
+              // Auto-save the avatar change
+              onUpdate({ ...formData, avatar: url });
+          } catch (error) {
+              console.error("Avatar upload failed", error);
+              alert("Failed to upload avatar.");
+          } finally {
+              setIsUploading(false);
+          }
+      }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       
@@ -123,13 +147,28 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                <img 
                  src={formData.avatar} 
                  alt={formData.name} 
-                 className="w-32 h-32 md:w-40 md:h-40 rounded-3xl object-cover border-4 border-pd-lightest shadow-xl"
+                 className={`w-32 h-32 md:w-40 md:h-40 rounded-3xl object-cover border-4 border-pd-lightest shadow-xl transition-opacity ${isUploading ? 'opacity-50' : ''}`}
                />
-               {isEditing && (
-                 <div className="absolute inset-0 bg-black/50 rounded-3xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer backdrop-blur-sm">
+               {isUploading && (
+                   <div className="absolute inset-0 flex items-center justify-center">
+                       <Loader className="animate-spin text-pd-teal" size={32} />
+                   </div>
+               )}
+               {isEditing && !isUploading && (
+                 <div 
+                    onClick={triggerFileUpload}
+                    className="absolute inset-0 bg-black/50 rounded-3xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer backdrop-blur-sm"
+                 >
                     <Camera className="text-white" size={32} />
                  </div>
                )}
+               <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleFileChange} 
+               />
             </div>
             <div className="flex-1">
                {isEditing ? (
@@ -154,35 +193,43 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
          </div>
          
          <div className="flex flex-col items-end gap-4 w-full md:w-auto">
-             <div className="flex gap-2 bg-pd-lightest/30 p-1.5 rounded-xl border border-pd-lightest">
+             <div className="flex flex-wrap gap-2 bg-pd-lightest/30 p-1.5 rounded-xl border border-pd-lightest">
                 <button 
                     onClick={() => setActiveTab('profile')}
                     className={`px-4 py-2 rounded-lg font-impact uppercase tracking-wide text-sm transition-all ${activeTab === 'profile' ? 'bg-pd-darkblue text-white shadow-md' : 'text-pd-slate hover:bg-white'}`}
                 >
-                    Dog Profile
+                    Profile
+                </button>
+                <button 
+                    onClick={() => setActiveTab('assessment')}
+                    className={`px-4 py-2 rounded-lg font-impact uppercase tracking-wide text-sm transition-all ${activeTab === 'assessment' ? 'bg-pd-darkblue text-white shadow-md' : 'text-pd-slate hover:bg-white'}`}
+                >
+                    Assessment
                 </button>
                 <button 
                     onClick={() => setActiveTab('account')}
                     className={`px-4 py-2 rounded-lg font-impact uppercase tracking-wide text-sm transition-all ${activeTab === 'account' ? 'bg-pd-darkblue text-white shadow-md' : 'text-pd-slate hover:bg-white'}`}
                 >
-                    Account & Parents
+                    Account
                 </button>
                 <button 
                     onClick={() => setActiveTab('notifications')}
                     className={`px-4 py-2 rounded-lg font-impact uppercase tracking-wide text-sm transition-all ${activeTab === 'notifications' ? 'bg-pd-darkblue text-white shadow-md' : 'text-pd-slate hover:bg-white'}`}
                 >
-                    Notifications
+                    Alerts
                 </button>
              </div>
              
-             <Button 
-                variant={isEditing ? "accent" : "primary"} 
-                icon={isEditing ? Save : undefined}
-                onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                className="w-full md:w-auto"
-             >
-                {isEditing ? "Save All Changes" : "Edit Settings"}
-             </Button>
+             {activeTab === 'profile' && (
+                <Button 
+                    variant={isEditing ? "accent" : "primary"} 
+                    icon={isEditing ? Save : undefined}
+                    onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                    className="w-full md:w-auto"
+                >
+                    {isEditing ? "Save All Changes" : "Edit Settings"}
+                </Button>
+             )}
          </div>
       </div>
 
@@ -195,7 +242,6 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                     <Dog className="text-pd-teal" /> Core Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {/* ... (Fields preserved from original) ... */}
                     <div className="space-y-2">
                     <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider">Breed(s)</label>
                     {isEditing ? (
@@ -208,7 +254,7 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                         <p className="font-bold text-pd-darkblue text-lg">{formData.breeds.join(', ')}</p>
                     )}
                     </div>
-                    {/* ... (Other fields omitted for brevity, assume preserved) ... */}
+                    
                     <div className="space-y-2">
                     <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider">Date of Birth</label>
                     {isEditing ? (
@@ -266,12 +312,11 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                 </div>
             </Card>
 
-            {/* Veterinary Care (Preserved) */}
+            {/* Veterinary Care */}
             <Card className="bg-white hover:shadow-md transition-shadow duration-300 border-2 border-pd-lightest">
                 <h3 className="font-impact text-2xl text-pd-darkblue uppercase tracking-wide mb-6 flex items-center gap-2 border-b-2 border-pd-lightest pb-4">
                     <Stethoscope className="text-rose-500" /> Veterinary Care
                 </h3>
-                {/* ... (Existing Vet implementation) ... */}
                 <div className="grid md:grid-cols-2 gap-12">
                     <div className="space-y-6">
                     <h4 className="font-impact text-xl text-pd-darkblue uppercase tracking-wide mb-4">Primary Veterinarian</h4>
@@ -289,7 +334,6 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                                 <p className="font-bold text-pd-darkblue text-lg">{formData.veterinarian?.name || "Not listed"}</p>
                             )}
                         </div>
-                        {/* ... */}
                          <div>
                             <label className="text-xs font-bold text-pd-softgrey uppercase tracking-wider block mb-1">Clinic</label>
                             {isEditing ? (
@@ -357,7 +401,7 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                 </div>
             </Card>
 
-            {/* Health & Nutrition (Preserved) */}
+            {/* Health & Nutrition */}
             <div className="grid md:grid-cols-2 gap-8">
                 <Card className="bg-white hover:shadow-md transition-shadow duration-300 border-2 border-pd-lightest">
                     <h3 className="font-impact text-2xl text-pd-darkblue uppercase tracking-wide mb-6 flex items-center gap-2 border-b-2 border-pd-lightest pb-4">
@@ -419,7 +463,6 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                     <h3 className="font-impact text-2xl text-pd-darkblue uppercase tracking-wide mb-6 flex items-center gap-2 border-b-2 border-pd-lightest pb-4">
                     <Utensils className="text-orange-500" /> Nutrition
                     </h3>
-                    {/* ... Nutrition Details ... */}
                     <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
                         <div>
@@ -455,7 +498,6 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                 </Card>
             </div>
             
-            {/* Household (Preserved) */}
              <Card className="bg-white hover:shadow-md transition-shadow duration-300 border-2 border-pd-lightest">
                 <h3 className="font-impact text-2xl text-pd-darkblue uppercase tracking-wide mb-6 flex items-center gap-2 border-b-2 border-pd-lightest pb-4">
                     <Home className="text-pd-teal" /> Household
@@ -500,6 +542,11 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
           </div>
       )}
 
+      {/* --- ASSESSMENT TAB (New) --- */}
+      {activeTab === 'assessment' && (
+          <Assessment dog={dog} onUpdate={onUpdate} />
+      )}
+
       {/* --- ACCOUNT TAB --- */}
       {activeTab === 'account' && (
          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -509,7 +556,6 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                     <h3 className="font-impact text-2xl text-pd-darkblue uppercase tracking-wide mb-6 flex items-center gap-2 border-b-2 border-pd-lightest pb-4">
                         <User className="text-pd-teal" /> Parent Info
                     </h3>
-                    {/* ... (Parent Fields Preserved) ... */}
                      <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -567,7 +613,6 @@ export const DogProfile: React.FC<DogProfileProps> = ({ dog, onUpdate }) => {
                     <h3 className="font-impact text-2xl text-pd-darkblue uppercase tracking-wide mb-6 flex items-center gap-2 border-b-2 border-pd-lightest pb-4">
                         <ShieldAlert className="text-rose-500" /> Emergency Contact
                     </h3>
-                    {/* ... (Contact Fields Preserved) ... */}
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>

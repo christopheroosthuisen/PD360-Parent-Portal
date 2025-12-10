@@ -59,9 +59,10 @@ export interface ButtonProps {
   disabled?: boolean;
   as?: 'button' | 'label';
   htmlFor?: string;
+  type?: 'button' | 'submit' | 'reset';
 }
 
-export const Button: React.FC<ButtonProps> = ({ children, variant = "primary", onClick, className = "", icon: Icon, disabled = false, as = 'button', htmlFor }) => {
+export const Button: React.FC<ButtonProps> = ({ children, variant = "primary", onClick, className = "", icon: Icon, disabled = false, as = 'button', htmlFor, type = 'button' }) => {
   const baseStyle = "px-6 py-3 rounded-xl font-bold font-impact tracking-wide transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer uppercase text-sm md:text-base active:scale-[0.98]";
   
   const variants = {
@@ -82,7 +83,7 @@ export const Button: React.FC<ButtonProps> = ({ children, variant = "primary", o
   }
   
   return (
-    <button onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>
+    <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>
       {Icon && <Icon size={20} />}
       {children}
     </button>
@@ -376,6 +377,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   {onLogout && (
                      <button 
+                        type="button"
                         onClick={onLogout}
                         className="w-full flex items-center justify-center gap-2 text-xs font-bold text-rose-500 uppercase hover:bg-rose-50 py-2 rounded-lg transition-colors"
                      >
@@ -389,7 +391,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                      {gradeName[0]}
                   </div>
                   {onLogout && (
-                     <button onClick={onLogout} title="Log Out" className="text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition-colors">
+                     <button type="button" onClick={onLogout} title="Log Out" className="text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition-colors">
                         <LogOut size={20} />
                      </button>
                   )}

@@ -194,6 +194,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
 
     const newEvent: CalendarEvent = {
         id: `evt_${Date.now()}`,
+        dogId: dogData.id,
         date: selectedDate,
         title: newEventTitle,
         type: newEventType,
@@ -266,6 +267,7 @@ export const TrainingCalendar: React.FC<TrainingCalendarProps> = ({ dogData, onS
 
         return {
           id: `train_${Date.now()}_${day.dayOffset}`,
+          dogId: dogData.id,
           date: dateStr,
           title: `${day.title}`,
           type: 'training',
